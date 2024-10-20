@@ -1,11 +1,15 @@
 package main
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/doug-martin/goqu/v9"
 	"github.com/ikawaha/kagome-dict/ipa"
 	"github.com/ikawaha/kagome/v2/tokenizer"
-	"github.com/nihongosensei/nihongosensei-go/internal/furigana"
+	_ "github.com/lib/pq"
+	"github.com/nihongosensei/nihongosensei-go/internal/dictionary"
+	"github.com/nihongosensei/nihongosensei-go/internal/handler"
 	"log"
 	"net/http"
 	"os"
@@ -28,9 +32,30 @@ func handleRequests() {
 		panic(err)
 	}
 
+	connStr := "user=wadoku password=wadoku dbname=postgres sslmode=disable"
+
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		panic(err)
+	}
+
+	goquDB := goqu.New("postgres", db)
+
 	mux := http.NewServeMux()
 
-	mux.Handle("POST /furigana", &furigana.TokenizeHandler{Tokenizer: t})
+	d := dictionary.Dictionary{
+		DB:   db,
+		Goqu: goquDB,
+	}
+
+	mux.Handle("POST /furigana", &handler.TokenizeHandler{Tokenizer: t})
+
+	mux.Handle("GET /entry/id/{id}", &handler.EntryByIdHandler{Dictionary: d})
+	mux.Handle("GET /entry/id/{id}/resolved", &handler.ResolvedEntryHandler{Dictionary: d})
+	mux.Handle("GET /entry/text/{text}", &handler.EntryByTextHandler{Dictionary: d})
+	mux.Handle("POST /entries", &handler.EntriesByFilter{Dictionary: d})
+
+	mux.Handle("GET /kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: d})
 
 	log.Printf("Server is listening on port %s\n", port)
 

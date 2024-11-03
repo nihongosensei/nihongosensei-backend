@@ -65,14 +65,14 @@ func handleRequests() {
 		Goqu: goquDB,
 	}
 
-	mux.Handle("POST /furigana", &handler.TokenizeHandler{Tokenizer: t})
+	mux.Handle("POST /api/furigana", &handler.TokenizeHandler{Tokenizer: t})
 
-	mux.Handle("GET /entry/id/{id}", &handler.EntryByIdHandler{Dictionary: d})
-	mux.Handle("GET /entry/id/{id}/resolved", &handler.ResolvedEntryHandler{Dictionary: d})
-	mux.Handle("GET /entry/text/{text}", &handler.EntryByTextHandler{Dictionary: d})
-	mux.Handle("POST /entries", &handler.EntriesByFilter{Dictionary: d})
+	mux.Handle("GET /api/entry/id/{id}", &handler.EntryByIdHandler{Dictionary: d})
+	mux.Handle("GET /api/entry/id/{id}/resolved", &handler.ResolvedEntryHandler{Dictionary: d})
+	mux.Handle("GET /api/entry/text/{text}", &handler.EntryByTextHandler{Dictionary: d})
+	mux.Handle("POST /api/entries", &handler.EntriesByFilter{Dictionary: d})
 
-	mux.Handle("GET /kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: d})
+	mux.Handle("GET /api/kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: d})
 
 	slog.Info("Server is listening on port", "port", port)
 

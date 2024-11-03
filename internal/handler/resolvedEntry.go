@@ -6,7 +6,6 @@ import (
 	"errors"
 	"github.com/nihongosensei/nihongosensei-go/internal/dictionary"
 	"github.com/nihongosensei/nihongosensei-go/internal/postgres"
-	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -34,7 +33,7 @@ func (h *ResolvedEntryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating response json: %v\n", err)
+		slog.Error("error during SelectEntry", "error", err)
 		return
 	}
 

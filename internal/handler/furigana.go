@@ -2,8 +2,8 @@ package handler
 
 import (
 	"encoding/json"
-	furigana "github.com/nihongosensei/nihongosensei-go/internal/furigana"
-	"log"
+	"github.com/nihongosensei/nihongosensei-go/internal/furigana"
+	"log/slog"
 	"net/http"
 
 	"github.com/ikawaha/kagome/v2/tokenizer"
@@ -36,14 +36,14 @@ func (h *TokenizeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f, err := furigana.TextToFurigana(h.Tokenizer, input.Text)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating f: %v\n", err)
+		slog.Error("error during TextToFurigana", "error", err)
 		return
 	}
 
 	err = json.NewEncoder(w).Encode(f)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating response json: %v\n", err)
+		slog.Error("error while creating furigana response json", "error", err)
 		return
 	}
 }

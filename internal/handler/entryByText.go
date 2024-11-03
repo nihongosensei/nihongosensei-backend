@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/nihongosensei/nihongosensei-go/internal/dictionary"
-	"log"
+	"log/slog"
 	"net/http"
 )
 
@@ -29,7 +29,7 @@ func (h *EntryByTextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating response json: %v\n", err)
+		slog.Error("error during SelectEntryByText", "error", err)
 		return
 	}
 
@@ -38,7 +38,7 @@ func (h *EntryByTextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(entry)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating response json: %v\n", err)
+		slog.Error("error while creating entryByText response json", "error", err)
 		return
 	}
 }

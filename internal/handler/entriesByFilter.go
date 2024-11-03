@@ -3,7 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"github.com/nihongosensei/nihongosensei-go/internal/dictionary"
-	"log"
+	"log/slog"
 	"net/http"
 )
 
@@ -23,7 +23,6 @@ func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		log.Printf("error while decoding input json: %v\n", err)
 		return
 	}
 
@@ -48,7 +47,7 @@ func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	entries, err := h.Dictionary.SelectEntries(filter)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating response json: %v\n", err)
+		slog.Error("error during SelectEntries", "error", err)
 		return
 	}
 
@@ -57,7 +56,7 @@ func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(entries)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating response json: %v\n", err)
+		slog.Error("error while creating entriesByFilter response json", "error", err)
 		return
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/nihongosensei/nihongosensei-go/internal/dictionary"
-	"log"
+	"log/slog"
 	"net/http"
 	"unicode"
 )
@@ -23,6 +23,7 @@ type KanjiByCharDTO struct {
 	Radical string `json:"radical,omitempty"`
 }
 
+// Checks if the given kanji is one Kanji
 func containsExactlyOneKanji(s string) bool {
 	kanjiCount := 0
 
@@ -53,7 +54,7 @@ func (h *KanjiByCharHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating response json: %v\n", err)
+		slog.Error("error during SelectKanji", "error", err)
 		return
 	}
 
@@ -62,7 +63,7 @@ func (h *KanjiByCharHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(kanji)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating response json: %v\n", err)
+		slog.Error("error while creating kanjiByChar response json", "error", err)
 		return
 	}
 }

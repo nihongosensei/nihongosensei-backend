@@ -10,7 +10,6 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/nihongosensei/nihongosensei-go/internal/handler"
 	"github.com/nihongosensei/nihongosensei-go/internal/postgres"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -25,10 +24,25 @@ func getEnv(key string, fallback string) string {
 	return value
 }
 
+func getLogLevelFromEnv() slog.Level {
+	logLevelStr := os.Getenv("LOG_LEVEL")
+	switch logLevelStr {
+	case "DEBUG":
+		return slog.LevelDebug
+	case "INFO":
+		return slog.LevelInfo
+	case "WARN":
+		return slog.LevelWarn
+	case "ERROR":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
 func handleRequests() {
 	port := getEnv("PORT", "3001")
-	// TODO: remove
-	slog.SetLogLoggerLevel(slog.LevelDebug)
+	slog.SetLogLoggerLevel(getLogLevelFromEnv())
 
 	t, err := tokenizer.New(ipa.Dict(), tokenizer.OmitBosEos())
 	if err != nil {
@@ -60,14 +74,14 @@ func handleRequests() {
 
 	mux.Handle("GET /kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: d})
 
-	log.Printf("Server is listening on port %s\n", port)
+	slog.Info("Server is listening on port", "port", port)
 
 	err = http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
 
 	if errors.Is(err, http.ErrServerClosed) {
-		log.Println("server closed")
+		slog.Info("server closed")
 	} else if err != nil {
-		log.Printf("error starting server: %s\n", err)
+		slog.Error("error starting server", "error", err)
 		os.Exit(1)
 	}
 }

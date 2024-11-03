@@ -3,7 +3,6 @@ module github.com/nihongosensei/nihongosensei-go
 go 1.22
 
 require (
-	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/doug-martin/goqu/v9 v9.19.0
 	github.com/guregu/null/v5 v5.0.0
 	github.com/ikawaha/kagome-dict/ipa v1.2.0

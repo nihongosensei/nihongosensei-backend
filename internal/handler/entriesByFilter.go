@@ -18,11 +18,6 @@ type EntriesByFilterPostBody struct {
 	Jlpt   int16  `json:"jlpt,omitempty"`
 }
 
-type EntriesByFilterResponse struct {
-	Entries []dictionary.Entry `json:"entries"`
-	Count   int                `json:"count"`
-}
-
 func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var input EntriesByFilterPostBody
 	err := json.NewDecoder(r.Body).Decode(&input)
@@ -57,19 +52,9 @@ func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entriesCount, err := h.Dictionary.SelectEntriesCount(filter)
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating response json: %v\n", err)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
-	err = json.NewEncoder(w).Encode(&EntriesByFilterResponse{
-		Entries: entries,
-		Count:   entriesCount,
-	})
+	err = json.NewEncoder(w).Encode(entries)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Printf("error while creating response json: %v\n", err)

@@ -4,23 +4,17 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/nihongosensei/nihongosensei-go/internal/dictionary"
-	"github.com/nihongosensei/nihongosensei-go/internal/japanese"
+	"github.com/nihongosensei/nihongosensei-go/internal/postgres"
 	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 )
 
 type ResolvedEntryHandler struct {
-	Dictionary dictionary.Dictionary
-}
-
-type ResolvedEntry struct {
-	Entry     dictionary.Entry                        `json:"entry"`
-	Synonyms  []dictionary.Entry                      `json:"synonyms"`
-	Relations []dictionary.EntryRefWithResolvedSource `json:"relatedEntries"`
-	Kanjis    []dictionary.Kanji                      `json:"kanjis"`
+	// TODO: abstract
+	Dictionary *postgres.PostgresDictionary
 }
 
 func (h *ResolvedEntryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -45,24 +39,25 @@ func (h *ResolvedEntryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Select synonyms
-	synonymIds := mapset.NewSet[int]()
-	for _, ruigo := range entry.EntryJson.Ruigos.Ruigo {
-		synonymIds.Add(ruigo.Id)
+	var synonyms *[]dictionary.Entry
+	if entry.Synonyms != nil && len(entry.Synonyms) > 0 {
+		synonyms, err = h.Dictionary.SelectEntryByIds(entry.Synonyms)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			slog.Error("failed to select synonyms", "error", err)
+			return
+		}
 	}
-
-	synonyms, err := h.Dictionary.SelectEntryByIds(synonymIds)
 
 	// Select Kanjis
-	kanjiSet := mapset.NewSet[string]()
-	for _, orth := range entry.EntryJson.Form.Orth {
-		kanjiSet.Append(japanese.FindKanjis(orth.Value)...)
-	}
-	kanjis, err := h.Dictionary.SelectKanjis(kanjiSet)
-
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating response json: %v\n", err)
-		return
+	var kanjis *[]dictionary.Kanji
+	if entry.Kanjis != nil && len(entry.Kanjis) > 0 {
+		kanjis, err = h.Dictionary.SelectKanjis(entry.Kanjis)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			slog.Error("failed to select kanjis", "error", err)
+			return
+		}
 	}
 
 	// Select References
@@ -70,12 +65,12 @@ func (h *ResolvedEntryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating response json: %v\n", err)
+		slog.Error("failed to select main refs by target id", "error", err)
 		return
 	}
 
 	// Prepare Output
-	entryDto := ResolvedEntry{
+	entryDto := dictionary.ResolvedEntry{
 		Entry:     entry,
 		Synonyms:  synonyms,
 		Relations: refs,
@@ -85,7 +80,7 @@ func (h *ResolvedEntryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	resp, err := json.Marshal(entryDto)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("error while creating response json: %v\n", err)
+		slog.Error("failed to create response json for resolved entry", "error", err)
 		return
 	}
 

@@ -1,22 +1,46 @@
 package dictionary
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
-	"github.com/doug-martin/goqu/v9"
 	"github.com/guregu/null/v5"
 )
 
-type Dictionary struct {
-	DB   *sql.DB
-	Goqu *goqu.Database
+type Dictionary interface {
+	SelectEntry(id int) (*Entry, error)
+	SelectEntryByText(text string) (*Entry, error)
+	SelectEntries(filter EntryFilter) (*SelectEntries, error)
+	SelectKanji(kanjiChar string) (*Kanji, error)
+	SelectKanjis(kanjiSet []string) (*[]Kanji, error)
+}
+
+type Kanji struct {
+	Kanji   string `json:"kanji"`
+	Strokes int16  `json:"strokes"`
+	Grade   int16  `json:"grade"`
+	Kunyomi string `json:"kunyomi,omitempty"`
+	Onyomi  string `json:"onyomi,omitempty"`
+	Radical string `json:"radical,omitempty"`
+}
+
+type SelectEntries struct {
+	Entries []Entry `json:"entries"`
+	Count   int     `json:"count"`
+}
+
+type EntryFilter struct {
+	Query  string
+	Limit  uint
+	Offset uint
+	Jlpt   int16
 }
 
 type Entry struct {
 	Id        int        `json:"id" db:"id"`
-	EntryJson EntryJson  `json:"entry_json" db:"entryjson"`
+	EntryJson EntryJson  `json:"entryJson" db:"entry_json"`
 	Jlpt      null.Int16 `json:"jlpt,omitempty" db:"jlpt"`
+	Kanjis    Kanjis     `json:"kanjis" db:"kanjis"`
+	Synonyms  Synonyms   `json:"synonyms" db:"synonyms"`
 }
 
 type EntryJson struct {
@@ -30,19 +54,54 @@ type EntryJson struct {
 	Ref     []any  `json:"ref,omitempty"`
 }
 
+type ResolvedEntry struct {
+	Entry     *Entry                        `json:"entry"`
+	Synonyms  *[]Entry                      `json:"synonyms"`
+	Relations *[]EntryRefWithResolvedSource `json:"relatedEntries"`
+	Kanjis    *[]Kanji                      `json:"kanjis"`
+}
+
+type EntryRefWithResolvedSource struct {
+	Type         string    `json:"type"`
+	SubEntryType string    `json:"subentrytype,omitempty"`
+	EntryJson    EntryJson `json:"entry" db:"entry_json"`
+}
+
+type Synonyms []int
+
+// Scan on Synonyms allows decoding of embedded json
+// TODO: move to postgres package?
+func (p *Synonyms) Scan(src interface{}) error {
+	source, ok := src.([]byte)
+	if !ok {
+		return errors.New("type assertion .([]byte) failed")
+	}
+
+	return json.Unmarshal(source, p)
+}
+
+type Kanjis []string
+
+// Scan on Kanjis allows decoding of embedded json
+// TODO: move to postgres package?
+func (p *Kanjis) Scan(src interface{}) error {
+	source, ok := src.([]byte)
+	if !ok {
+		return errors.New("type assertion .([]byte) failed")
+	}
+
+	return json.Unmarshal(source, p)
+}
+
 // Scan on EntryJson allows decoding of embedded json
+// TODO: move to postgres package?
 func (p *EntryJson) Scan(src interface{}) error {
 	source, ok := src.([]byte)
 	if !ok {
 		return errors.New("type assertion .([]byte) failed")
 	}
 
-	err := json.Unmarshal(source, p)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return json.Unmarshal(source, p)
 }
 
 type Form struct {

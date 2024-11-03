@@ -8,9 +8,10 @@ import (
 	"github.com/ikawaha/kagome-dict/ipa"
 	"github.com/ikawaha/kagome/v2/tokenizer"
 	_ "github.com/lib/pq"
-	"github.com/nihongosensei/nihongosensei-go/internal/dictionary"
 	"github.com/nihongosensei/nihongosensei-go/internal/handler"
+	"github.com/nihongosensei/nihongosensei-go/internal/postgres"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 )
@@ -26,6 +27,8 @@ func getEnv(key string, fallback string) string {
 
 func handleRequests() {
 	port := getEnv("PORT", "3001")
+	// TODO: remove
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	t, err := tokenizer.New(ipa.Dict(), tokenizer.OmitBosEos())
 	if err != nil {
@@ -43,7 +46,7 @@ func handleRequests() {
 
 	mux := http.NewServeMux()
 
-	d := dictionary.Dictionary{
+	d := &postgres.PostgresDictionary{
 		DB:   db,
 		Goqu: goquDB,
 	}

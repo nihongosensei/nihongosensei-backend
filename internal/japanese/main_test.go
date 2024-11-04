@@ -27,3 +27,15 @@ func TestFindKanjis(t *testing.T) {
 		t.Errorf("Expected 人間生自由 as kanjis, but got %+v", strings.Join(kanjis, ""))
 	}
 }
+
+func TestContainsKanjiWithOneKanji(t *testing.T) {
+	if !ContainsKanji("学") {
+		t.Error("Must return true for exact one kanji")
+	}
+}
+
+func TestContainsKanjiWithMultipleKanji(t *testing.T) {
+	if ContainsKanji("学学") {
+		t.Error("Must return false for multiple kanjis")
+	}
+}

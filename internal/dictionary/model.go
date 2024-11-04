@@ -32,7 +32,12 @@ type EntryFilter struct {
 	Query  string
 	Limit  uint
 	Offset uint
-	Jlpt   int16
+	// The JLPT Level (1-5)
+	Jlpt int16
+	// A list of ids to select. Only existing matches are returned.
+	Ids []int16
+	// A list of kanjis where at least one of them must match.
+	Kanjis []string
 }
 
 type Entry struct {

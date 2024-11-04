@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"fmt"
 	"github.com/doug-martin/goqu/v9"
 	"github.com/doug-martin/goqu/v9/exp"
 	"github.com/nihongosensei/nihongosensei-go/internal/dictionary"
@@ -41,6 +42,18 @@ func (d *PostgresDictionary) SelectEntries(filter dictionary.EntryFilter) (*dict
 				).Desc(),
 			)
 	}
+	if len(filter.Ids) > 0 {
+		where = append(where, goqu.Ex{
+			"id": filter.Ids,
+		})
+	}
+	if len(filter.Kanjis) > 0 {
+		or := make([]goqu.Expression, len(filter.Kanjis))
+		for i, k := range filter.Kanjis {
+			or[i] = goqu.L("kanjis @> ?::jsonb", fmt.Sprintf(`["%s"]`, k))
+		}
+		where = append(where, goqu.Or(or...))
+	}
 
 	if len(where) > 0 {
 		query = query.Where(where...)
@@ -79,10 +92,25 @@ func (d *PostgresDictionary) selectEntriesCount(filter dictionary.EntryFilter) (
 		query = query.From("entry", goqu.Func("plainto_tsquery", filter.Query).As("query"))
 		where = append(where, goqu.L("text_tsv @@ query"))
 	}
+	if len(filter.Ids) > 0 {
+		where = append(where, goqu.Ex{
+			"id": filter.Ids,
+		})
+	}
+	if len(filter.Kanjis) > 0 {
+		or := make([]goqu.Expression, len(filter.Kanjis))
+		for i, k := range filter.Kanjis {
+			or[i] = goqu.L("kanjis @> ?::jsonb", fmt.Sprintf(`["%s"]`, k))
+		}
+		where = append(where, goqu.Or(or...))
+	}
 
 	if len(where) > 0 {
 		query = query.Where(where...)
 	}
+
+	sql, _, _ := query.ToSQL()
+	slog.Debug("created entries count query", "query", sql)
 
 	count := 0
 	_, err := query.ScanVal(&count)

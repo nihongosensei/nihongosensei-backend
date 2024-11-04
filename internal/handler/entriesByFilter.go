@@ -12,10 +12,12 @@ type EntriesByFilter struct {
 }
 
 type EntriesByFilterPostBody struct {
-	Query  string `json:"query"`
-	Limit  uint   `json:"limit,omitempty"`
-	Offset uint   `json:"offset,omitempty"`
-	Jlpt   int16  `json:"jlpt,omitempty"`
+	Query  string   `json:"query"`
+	Limit  uint     `json:"limit,omitempty"`
+	Offset uint     `json:"offset,omitempty"`
+	Jlpt   int16    `json:"jlpt,omitempty"`
+	Kanjis []string `json:"kanjis,omitempty"`
+	Ids    []int16  `json:"ids,omitempty"`
 }
 
 func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -42,6 +44,12 @@ func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		filter.Limit = input.Limit
 	} else {
 		filter.Limit = 10
+	}
+	if len(input.Kanjis) > 0 {
+		filter.Kanjis = input.Kanjis
+	}
+	if len(input.Ids) > 0 {
+		filter.Ids = input.Ids
 	}
 
 	entries, err := h.Dictionary.SelectEntries(filter)

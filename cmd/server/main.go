@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func getEnv(key string, fallback string) string {
@@ -25,15 +26,15 @@ func getEnv(key string, fallback string) string {
 }
 
 func getLogLevelFromEnv() slog.Level {
-	logLevelStr := os.Getenv("LOG_LEVEL")
+	logLevelStr := strings.ToLower(os.Getenv("LOG_LEVEL"))
 	switch logLevelStr {
-	case "DEBUG":
+	case "debug":
 		return slog.LevelDebug
-	case "INFO":
+	case "info":
 		return slog.LevelInfo
-	case "WARN":
+	case "warn":
 		return slog.LevelWarn
-	case "ERROR":
+	case "error":
 		return slog.LevelError
 	default:
 		return slog.LevelInfo

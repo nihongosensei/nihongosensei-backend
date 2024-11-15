@@ -21,6 +21,9 @@ type EntriesByFilterPostBody struct {
 }
 
 func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_, span := tracer.Start(r.Context(), "entriesByFilter")
+	defer span.End()
+
 	var input EntriesByFilterPostBody
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {

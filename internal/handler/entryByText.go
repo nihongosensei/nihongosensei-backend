@@ -14,6 +14,9 @@ type EntryByTextHandler struct {
 }
 
 func (h *EntryByTextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_, span := tracer.Start(r.Context(), "entryByText")
+	defer span.End()
+
 	var text = r.PathValue("text")
 
 	if text == "" {

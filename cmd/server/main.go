@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -10,10 +11,16 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/nihongosensei/nihongosensei-go/internal/handler"
 	"github.com/nihongosensei/nihongosensei-go/internal/postgres"
+	"github.com/nihongosensei/nihongosensei-go/internal/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"log"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"time"
 )
 
 func getEnv(key string, fallback string) string {
@@ -51,32 +58,17 @@ func getLogLevelFromEnv() slog.Level {
 	}
 }
 
-func handleRequests() {
-	port := getEnv("PORT", "3001")
-	slog.SetLogLoggerLevel(getLogLevelFromEnv())
+func newHTTPHandler() http.Handler {
 
 	t, err := tokenizer.New(ipa.Dict(), tokenizer.OmitBosEos())
 	if err != nil {
 		panic(err)
 	}
 
-	dbUser := requireEnv("DB_USER")
-	dbPassword := requireEnv("DB_PASSWORD")
-	dbDatabase := requireEnv("DB_DATABASE")
-
-	connStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", dbUser, dbPassword, dbDatabase)
-
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		panic(err)
-	}
-
-	goquDB := goqu.New("postgres", db)
-
 	mux := http.NewServeMux()
 
 	d := &postgres.PostgresDictionary{
-		Goqu: goquDB,
+		Goqu: createDatabase(),
 	}
 
 	mux.Handle("POST /api/furigana", &handler.TokenizeHandler{Tokenizer: t})
@@ -88,18 +80,76 @@ func handleRequests() {
 
 	mux.Handle("GET /api/kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: d})
 
-	slog.Info("Server is listening on port", "port", port)
+	return otelhttp.NewHandler(mux, "/")
+}
 
-	err = http.ListenAndServe(fmt.Sprintf(":%s", port), mux)
+func createDatabase() *goqu.Database {
+	dbUser := requireEnv("DB_USER")
+	dbPassword := requireEnv("DB_PASSWORD")
+	dbDatabase := requireEnv("DB_DATABASE")
 
-	if errors.Is(err, http.ErrServerClosed) {
-		slog.Info("server closed")
-	} else if err != nil {
-		slog.Error("error starting server", "error", err)
-		os.Exit(1)
+	connStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", dbUser, dbPassword, dbDatabase)
+
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		panic(err)
 	}
+
+	return goqu.New("postgres", db)
+}
+
+func run() (err error) {
+	// Handle SIGINT (CTRL+C) gracefully.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	// Set up OpenTelemetry.
+	otelShutdown, err := telemetry.SetupOTelSDK(ctx)
+	if err != nil {
+		return
+	}
+	// Handle shutdown properly so nothing leaks.
+	defer func() {
+		err = errors.Join(err, otelShutdown(context.Background()))
+	}()
+
+	port := getEnv("PORT", "3001")
+
+	// Start HTTP server.
+	srv := &http.Server{
+		Addr:         fmt.Sprintf(":%s", port),
+		BaseContext:  func(_ net.Listener) context.Context { return ctx },
+		ReadTimeout:  time.Second,
+		WriteTimeout: 10 * time.Second,
+		Handler:      newHTTPHandler(),
+	}
+	srvErr := make(chan error, 1)
+	go func() {
+		srvErr <- srv.ListenAndServe()
+	}()
+
+	// Wait for interruption.
+	select {
+	case err = <-srvErr:
+		// Error when starting HTTP server.
+		return
+	case <-ctx.Done():
+		// Wait for first CTRL+C.
+		// Stop receiving signal notifications as soon as possible.
+		stop()
+	}
+
+	// When Shutdown is called, ListenAndServe immediately returns ErrServerClosed.
+	err = srv.Shutdown(context.Background())
+	return
 }
 
 func main() {
-	handleRequests()
+	slog.SetLogLoggerLevel(getLogLevelFromEnv())
+
+	go telemetry.ServeMetrics()
+
+	if err := run(); err != nil {
+		log.Fatalln(err)
+	}
 }

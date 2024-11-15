@@ -18,6 +18,9 @@ type PostBody struct {
 }
 
 func (h *TokenizeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_, span := tracer.Start(r.Context(), "furigana")
+	defer span.End()
+
 	var input PostBody
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {

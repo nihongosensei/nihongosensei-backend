@@ -15,6 +15,9 @@ type EntryByIdHandler struct {
 }
 
 func (h *EntryByIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_, span := tracer.Start(r.Context(), "entryById")
+	defer span.End()
+
 	var idString = r.PathValue("id")
 
 	id, err := strconv.Atoi(idString)

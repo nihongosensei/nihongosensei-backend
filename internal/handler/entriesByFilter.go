@@ -17,7 +17,7 @@ type EntriesByFilterPostBody struct {
 	Offset uint     `json:"offset,omitempty"`
 	Jlpt   int16    `json:"jlpt,omitempty"`
 	Kanjis []string `json:"kanjis,omitempty"`
-	Ids    []int16  `json:"ids,omitempty"`
+	Ids    []int    `json:"ids,omitempty"`
 }
 
 func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {

@@ -37,7 +37,7 @@ type EntryFilter struct {
 	// The JLPT Level (1-5)
 	Jlpt int16
 	// A list of ids to select. Only existing matches are returned.
-	Ids []int16
+	Ids []int
 	// A list of kanjis where at least one of them must match.
 	Kanjis []string
 }

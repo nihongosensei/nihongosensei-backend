@@ -23,13 +23,14 @@ type KanjiByCharDTO struct {
 	Radical string `json:"radical,omitempty"`
 }
 
-// Checks if the given kanji is one Kanji
-func containsExactlyOneKanji(s string) bool {
+// ContainsExactlyOneKanji checks if the given text contains exactly one kanji
+func ContainsExactlyOneKanji(s string) bool {
 	kanjiCount := 0
-
 	for _, r := range s {
 		if unicode.In(r, unicode.Han) {
 			kanjiCount++
+		} else {
+			return false
 		}
 		if kanjiCount > 1 {
 			return false
@@ -44,7 +45,7 @@ func (h *KanjiByCharHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 
 	var kanjiChar = r.PathValue("kanji")
-	if !containsExactlyOneKanji(kanjiChar) {
+	if !ContainsExactlyOneKanji(kanjiChar) {
 		http.Error(w, "kanji must contain exactly one kanji", http.StatusBadRequest)
 		return
 	}

@@ -25,6 +25,16 @@ func getEnv(key string, fallback string) string {
 	return value
 }
 
+// Requires the given env key. If the key is empty, panic.
+func requireEnv(key string) string {
+	value := os.Getenv(key)
+	if len(value) == 0 {
+		panic(key + " is required")
+	}
+
+	return value
+}
+
 func getLogLevelFromEnv() slog.Level {
 	logLevelStr := strings.ToLower(os.Getenv("LOG_LEVEL"))
 	switch logLevelStr {
@@ -50,7 +60,11 @@ func handleRequests() {
 		panic(err)
 	}
 
-	connStr := "user=wadoku password=wadoku dbname=postgres sslmode=disable"
+	dbUser := requireEnv("DB_USER")
+	dbPassword := requireEnv("DB_PASSWORD")
+	dbDatabase := requireEnv("DB_DATABASE")
+
+	connStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", dbUser, dbPassword, dbDatabase)
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {

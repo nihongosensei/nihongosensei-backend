@@ -90,11 +90,12 @@ func newHTTPHandler() http.Handler {
 }
 
 func createDatabase() *goqu.Database {
+	dbHost := requireEnv("DB_HOST")
 	dbUser := requireEnv("DB_USER")
 	dbPassword := requireEnv("DB_PASSWORD")
 	dbDatabase := requireEnv("DB_DATABASE")
 
-	connStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", dbUser, dbPassword, dbDatabase)
+	connStr := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbUser, dbPassword, dbDatabase)
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {

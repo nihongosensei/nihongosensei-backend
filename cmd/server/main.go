@@ -71,16 +71,22 @@ func newHTTPHandler() http.Handler {
 		Goqu: createDatabase(),
 	}
 
-	mux.Handle("POST /api/furigana", &handler.TokenizeHandler{Tokenizer: t})
+	// handle is a replacement for mux.Handle
+	// which enriches the handler's HTTP instrumentation with the pattern as the http.route.
+	handle := func(pattern string, handler http.Handler) {
+		mux.Handle(pattern, otelhttp.NewHandler(telemetry.TracingMiddleware(handler), pattern))
+	}
 
-	mux.Handle("GET /api/entry/id/{id}", &handler.EntryByIdHandler{Dictionary: d})
-	mux.Handle("GET /api/entry/id/{id}/resolved", &handler.ResolvedEntryHandler{Dictionary: d})
-	mux.Handle("GET /api/entry/text/{text}", &handler.EntryByTextHandler{Dictionary: d})
-	mux.Handle("POST /api/entries", &handler.EntriesByFilter{Dictionary: d})
+	handle("POST /api/furigana", &handler.TokenizeHandler{Tokenizer: t})
 
-	mux.Handle("GET /api/kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: d})
+	handle("GET /api/entry/id/{id}", &handler.EntryByIdHandler{Dictionary: d})
+	handle("GET /api/entry/id/{id}/resolved", &handler.ResolvedEntryHandler{Dictionary: d})
+	handle("GET /api/entry/text/{text}", &handler.EntryByTextHandler{Dictionary: d})
+	handle("POST /api/entries", &handler.EntriesByFilter{Dictionary: d})
 
-	return otelhttp.NewHandler(mux, "/")
+	handle("GET /api/kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: d})
+
+	return mux
 }
 
 func createDatabase() *goqu.Database {

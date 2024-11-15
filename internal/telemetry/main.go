@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
@@ -14,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/trace"
+	otrace "go.opentelemetry.io/otel/trace"
 	"log/slog"
 	"net/http"
 )
@@ -122,4 +124,34 @@ func ServeMetrics() {
 		fmt.Printf("error serving http: %v", err)
 		return
 	}
+}
+
+// responseWriter is a wrapper to capture HTTP status codes
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+// TracingMiddleware records http errors to the current active span.
+func TracingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		// Capture errors in response
+		rw := &responseWriter{ResponseWriter: w}
+		next.ServeHTTP(rw, r.WithContext(ctx))
+
+		// Record the error in the span if an error status was returned
+		if rw.statusCode >= http.StatusBadRequest {
+			span := otrace.SpanFromContext(ctx)
+
+			if span != nil {
+				span.SetStatus(codes.Error, http.StatusText(rw.statusCode))
+			}
+		}
+	})
 }

@@ -5,15 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/nihongosensei/nihongosensei-go/internal/dictionary"
-	"github.com/nihongosensei/nihongosensei-go/internal/postgres"
 	"log/slog"
 	"net/http"
 	"strconv"
 )
 
 type ResolvedEntryHandler struct {
-	// TODO: abstract
-	Dictionary *postgres.PostgresDictionary
+	Dictionary dictionary.Dictionary
 }
 
 func (h *ResolvedEntryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

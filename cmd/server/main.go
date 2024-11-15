@@ -62,7 +62,6 @@ func handleRequests() {
 	mux := http.NewServeMux()
 
 	d := &postgres.PostgresDictionary{
-		DB:   db,
 		Goqu: goquDB,
 	}
 

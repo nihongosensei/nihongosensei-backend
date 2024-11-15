@@ -21,15 +21,13 @@ func (d *PostgresDictionary) SelectEntries(filter dictionary.EntryFilter) (*dict
 		})
 	}
 	if filter.Query != "" {
-		// TODO: search japanese text?
 		query = query.From(
 			"entry",
 			goqu.Func("plainto_tsquery", filter.Query).As("query"),
 			goqu.Func("to_jsonb", goqu.L("?::text", filter.Query)).As("queryjson"),
 		)
 		where = append(where, goqu.L("text_tsv @@ query"))
-		// TODO: prefer entries which have an exact match
-		// order by text search rank
+		// order by text search rank and prefer entries that have an exact match
 		query = query.
 			Order(
 				goqu.Func(

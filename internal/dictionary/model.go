@@ -10,6 +10,8 @@ type Dictionary interface {
 	SelectEntry(id int) (*Entry, error)
 	SelectEntryByText(text string) (*Entry, error)
 	SelectEntries(filter EntryFilter) (*SelectEntries, error)
+	SelectEntryByIds(ids []int) (*[]Entry, error)
+	SelectMainRefsByTargetId(id int) (*[]EntryRefWithResolvedSource, error)
 	SelectKanji(kanjiChar string) (*Kanji, error)
 	SelectKanjis(kanjiSet []string) (*[]Kanji, error)
 }

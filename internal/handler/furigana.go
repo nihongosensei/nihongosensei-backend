@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"github.com/nihongosensei/nihongosensei-go/internal/furigana"
+	"github.com/nihongosensei/nihongosensei-backend/internal/furigana"
 	"log/slog"
 	"net/http"
 

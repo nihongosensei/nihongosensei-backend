@@ -3,7 +3,7 @@ package postgres
 import (
 	"fmt"
 	"github.com/doug-martin/goqu/v9"
-	"github.com/nihongosensei/nihongosensei-go/internal/dictionary"
+	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 )
 
 func (d *PostgresDictionary) SelectEntry(id int) (*dictionary.Entry, error) {

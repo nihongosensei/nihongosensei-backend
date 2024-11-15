@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"github.com/nihongosensei/nihongosensei-go/internal/dictionary"
+	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 	"log/slog"
 	"net/http"
 )

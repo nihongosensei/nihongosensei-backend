@@ -1,4 +1,4 @@
-module github.com/nihongosensei/nihongosensei-go
+module github.com/nihongosensei/nihongosensei-backend
 
 go 1.22
 

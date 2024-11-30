@@ -18,6 +18,7 @@ type EntriesByFilterPostBody struct {
 	Jlpt   int16    `json:"jlpt,omitempty"`
 	Kanjis []string `json:"kanjis,omitempty"`
 	Ids    []int    `json:"ids,omitempty"`
+	Text   string   `json:"text,omitempty"`
 }
 
 func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -53,6 +54,9 @@ func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(input.Ids) > 0 {
 		filter.Ids = input.Ids
+	}
+	if len(input.Text) > 0 {
+		filter.Text = input.Text
 	}
 
 	entries, err := h.Dictionary.SelectEntries(filter)

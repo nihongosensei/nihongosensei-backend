@@ -40,6 +40,8 @@ type EntryFilter struct {
 	Ids []int
 	// A list of kanjis where at least one of them must match.
 	Kanjis []string
+	// A text which must exactly be contained in an entry.
+	Text string
 }
 
 type Entry struct {

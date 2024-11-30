@@ -52,6 +52,9 @@ func (d *PostgresDictionary) SelectEntries(filter dictionary.EntryFilter) (*dict
 		}
 		where = append(where, goqu.Or(or...))
 	}
+	if len(filter.Text) > 0 {
+		where = append(where, goqu.L("text @> ?::jsonb", fmt.Sprintf(`["%s"]`, filter.Text)))
+	}
 
 	if len(where) > 0 {
 		query = query.Where(where...)
@@ -101,6 +104,9 @@ func (d *PostgresDictionary) selectEntriesCount(filter dictionary.EntryFilter) (
 			or[i] = goqu.L("kanjis @> ?::jsonb", fmt.Sprintf(`["%s"]`, k))
 		}
 		where = append(where, goqu.Or(or...))
+	}
+	if len(filter.Text) > 0 {
+		where = append(where, goqu.L("text @> ?::jsonb", fmt.Sprintf(`["%s"]`, filter.Text)))
 	}
 
 	if len(where) > 0 {

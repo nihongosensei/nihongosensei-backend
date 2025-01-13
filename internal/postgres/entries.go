@@ -23,7 +23,7 @@ func (d *PostgresDictionary) SelectEntries(filter dictionary.EntryFilter) (*dict
 	if filter.Query != "" {
 		query = query.From(
 			"entry",
-			goqu.Func("plainto_tsquery", filter.Query).As("query"),
+			goqu.Func("plainto_tsquery", "german", filter.Query).As("query"),
 			goqu.Func("to_jsonb", goqu.L("?::text", filter.Query)).As("queryjson"),
 		)
 		where = append(where, goqu.L("text_tsv @@ query"))
@@ -90,7 +90,7 @@ func (d *PostgresDictionary) selectEntriesCount(filter dictionary.EntryFilter) (
 		})
 	}
 	if filter.Query != "" {
-		query = query.From("entry", goqu.Func("plainto_tsquery", filter.Query).As("query"))
+		query = query.From("entry", goqu.Func("plainto_tsquery", "german", filter.Query).As("query"))
 		where = append(where, goqu.L("text_tsv @@ query"))
 	}
 	if len(filter.Ids) > 0 {

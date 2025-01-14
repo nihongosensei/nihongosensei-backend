@@ -44,7 +44,7 @@ func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		filter.Offset = 0
 	}
-	if input.Limit > 0 && input.Limit < 50 {
+	if input.Limit > 0 && input.Limit <= 50 {
 		filter.Limit = input.Limit
 	} else {
 		filter.Limit = 10

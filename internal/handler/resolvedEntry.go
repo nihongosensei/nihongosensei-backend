@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
@@ -26,58 +25,19 @@ func (h *ResolvedEntryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	entry, err := h.Dictionary.SelectEntry(id)
+	entry, err := h.Dictionary.SelectResolvedEntry(id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, dictionary.ErrEntryNotFound) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 			return
 		}
 
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error("error during SelectEntry", "error", err)
+		slog.Error("error during SelectResolvedEntry", "error", err)
 		return
 	}
 
-	// Select synonyms
-	var synonyms *[]dictionary.Entry
-	if entry.Synonyms != nil && len(entry.Synonyms) > 0 {
-		synonyms, err = h.Dictionary.SelectEntryByIds(entry.Synonyms)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			slog.Error("failed to select synonyms", "error", err)
-			return
-		}
-	}
-
-	// Select Kanjis
-	var kanjis *[]dictionary.Kanji
-	if entry.Kanjis != nil && len(entry.Kanjis) > 0 {
-		kanjis, err = h.Dictionary.SelectKanjis(entry.Kanjis)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			slog.Error("failed to select kanjis", "error", err)
-			return
-		}
-	}
-
-	// Select References
-	refs, err := h.Dictionary.SelectMainRefsByTargetId(id)
-
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error("failed to select main refs by target id", "error", err)
-		return
-	}
-
-	// Prepare Output
-	entryDto := dictionary.ResolvedEntry{
-		Entry:     entry,
-		Synonyms:  synonyms,
-		Relations: refs,
-		Kanjis:    kanjis,
-	}
-
-	resp, err := json.Marshal(entryDto)
+	resp, err := json.Marshal(entry)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		slog.Error("failed to create response json for resolved entry", "error", err)

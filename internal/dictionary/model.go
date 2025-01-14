@@ -1,18 +1,19 @@
 package dictionary
 
 import (
-	"encoding/json"
-	"errors"
+	"fmt"
 	"github.com/guregu/null/v5"
 )
+
+var ErrEntryNotFound = fmt.Errorf("entry not found")
+var ErrKanjiNotFound = fmt.Errorf("kanji not found")
 
 type Dictionary interface {
 	SelectEntry(id int) (*Entry, error)
 	SelectEntries(filter EntryFilter) (*SelectEntries, error)
-	SelectEntryByIds(ids []int) (*[]Entry, error)
-	SelectMainRefsByTargetId(id int) (*[]EntryRefWithResolvedSource, error)
 	SelectKanji(kanjiChar string) (*Kanji, error)
 	SelectKanjis(kanjiSet []string) (*[]Kanji, error)
+	SelectResolvedEntry(id int) (*ResolvedEntry, error)
 }
 
 type Kanji struct {
@@ -44,11 +45,10 @@ type EntryFilter struct {
 }
 
 type Entry struct {
-	Id        int        `json:"id" db:"id"`
-	EntryJson EntryJson  `json:"entryJson" db:"entry_json"`
-	Jlpt      null.Int16 `json:"jlpt,omitempty" db:"jlpt"`
-	Kanjis    Kanjis     `json:"kanjis" db:"kanjis"`
-	Synonyms  Synonyms   `json:"synonyms" db:"synonyms"`
+	Id        int        `json:"id"`
+	EntryJson EntryJson  `json:"entryJson"`
+	Jlpt      null.Int16 `json:"jlpt,omitempty"`
+	Kanjis    Kanjis     `json:"kanjis"`
 }
 
 type EntryJson struct {
@@ -72,45 +72,12 @@ type ResolvedEntry struct {
 type EntryRefWithResolvedSource struct {
 	Type         string    `json:"type"`
 	SubEntryType string    `json:"subentrytype,omitempty"`
-	EntryJson    EntryJson `json:"entry" db:"entry_json"`
+	EntryJson    EntryJson `json:"entry"`
 }
 
 type Synonyms []int
 
-// Scan on Synonyms allows decoding of embedded json
-// TODO: move to postgres package?
-func (p *Synonyms) Scan(src interface{}) error {
-	source, ok := src.([]byte)
-	if !ok {
-		return errors.New("type assertion .([]byte) failed")
-	}
-
-	return json.Unmarshal(source, p)
-}
-
 type Kanjis []string
-
-// Scan on Kanjis allows decoding of embedded json
-// TODO: move to postgres package?
-func (p *Kanjis) Scan(src interface{}) error {
-	source, ok := src.([]byte)
-	if !ok {
-		return errors.New("type assertion .([]byte) failed")
-	}
-
-	return json.Unmarshal(source, p)
-}
-
-// Scan on EntryJson allows decoding of embedded json
-// TODO: move to postgres package?
-func (p *EntryJson) Scan(src interface{}) error {
-	source, ok := src.([]byte)
-	if !ok {
-		return errors.New("type assertion .([]byte) failed")
-	}
-
-	return json.Unmarshal(source, p)
-}
 
 type Form struct {
 	Orth    []Orth  `json:"orth,omitempty"`

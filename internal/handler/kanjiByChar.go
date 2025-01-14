@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
@@ -52,7 +51,7 @@ func (h *KanjiByCharHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	kanji, err := h.Dictionary.SelectKanji(kanjiChar)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, dictionary.ErrKanjiNotFound) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 			return
 		}

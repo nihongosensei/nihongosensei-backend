@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
@@ -28,7 +27,7 @@ func (h *EntryByIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	entry, err := h.Dictionary.SelectEntry(id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, dictionary.ErrEntryNotFound) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 			return
 		}

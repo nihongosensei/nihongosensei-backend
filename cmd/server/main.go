@@ -2,15 +2,13 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/doug-martin/goqu/v9"
 	"github.com/ikawaha/kagome-dict/ipa"
 	"github.com/ikawaha/kagome/v2/tokenizer"
-	_ "github.com/lib/pq"
+	"github.com/nihongosensei/nihongosensei-backend/internal/elasticsearch"
+	"github.com/nihongosensei/nihongosensei-backend/internal/environment"
 	"github.com/nihongosensei/nihongosensei-backend/internal/handler"
-	"github.com/nihongosensei/nihongosensei-backend/internal/postgres"
 	"github.com/nihongosensei/nihongosensei-backend/internal/telemetry"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"log"
@@ -19,44 +17,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"time"
 )
-
-func getEnv(key string, fallback string) string {
-	value := os.Getenv(key)
-	if len(value) == 0 {
-		return fallback
-	}
-
-	return value
-}
-
-// Requires the given env key. If the key is empty, panic.
-func requireEnv(key string) string {
-	value := os.Getenv(key)
-	if len(value) == 0 {
-		panic(key + " is required")
-	}
-
-	return value
-}
-
-func getLogLevelFromEnv() slog.Level {
-	logLevelStr := strings.ToLower(os.Getenv("LOG_LEVEL"))
-	switch logLevelStr {
-	case "debug":
-		return slog.LevelDebug
-	case "info":
-		return slog.LevelInfo
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
-}
 
 func newHTTPHandler() http.Handler {
 
@@ -67,8 +29,14 @@ func newHTTPHandler() http.Handler {
 
 	mux := http.NewServeMux()
 
-	d := &postgres.PostgresDictionary{
-		Goqu: createDatabase(),
+	esClient, err := elasticsearch.CreateClientFromEnv()
+
+	if err != nil {
+		panic(err)
+	}
+
+	des := &elasticsearch.ElasticsearchDictionary{
+		TypedClient: esClient,
 	}
 
 	// handle is a replacement for mux.Handle
@@ -79,29 +47,13 @@ func newHTTPHandler() http.Handler {
 
 	handle("POST /api/furigana", &handler.TokenizeHandler{Tokenizer: t})
 
-	handle("GET /api/entry/id/{id}", &handler.EntryByIdHandler{Dictionary: d})
-	handle("GET /api/entry/id/{id}/resolved", &handler.ResolvedEntryHandler{Dictionary: d})
-	handle("POST /api/entries", &handler.EntriesByFilter{Dictionary: d})
+	handle("GET /api/entry/id/{id}", &handler.EntryByIdHandler{Dictionary: des})
+	handle("GET /api/entry/id/{id}/resolved", &handler.ResolvedEntryHandler{Dictionary: des})
+	handle("POST /api/entries", &handler.EntriesByFilter{Dictionary: des})
 
-	handle("GET /api/kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: d})
+	handle("GET /api/kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: des})
 
 	return mux
-}
-
-func createDatabase() *goqu.Database {
-	dbHost := requireEnv("DB_HOST")
-	dbUser := requireEnv("DB_USER")
-	dbPassword := requireEnv("DB_PASSWORD")
-	dbDatabase := requireEnv("DB_DATABASE")
-
-	connStr := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbUser, dbPassword, dbDatabase)
-
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		panic(err)
-	}
-
-	return goqu.New("postgres", db)
 }
 
 func run() (err error) {
@@ -119,7 +71,7 @@ func run() (err error) {
 		err = errors.Join(err, otelShutdown(context.Background()))
 	}()
 
-	port := getEnv("PORT", "3001")
+	port := environment.Get("PORT", "3001")
 
 	// Start HTTP server.
 	srv := &http.Server{
@@ -151,7 +103,7 @@ func run() (err error) {
 }
 
 func main() {
-	slog.SetLogLoggerLevel(getLogLevelFromEnv())
+	slog.SetLogLoggerLevel(environment.LogLevel())
 
 	go telemetry.ServeMetrics()
 

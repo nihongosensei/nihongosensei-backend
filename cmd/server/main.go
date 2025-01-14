@@ -81,7 +81,6 @@ func newHTTPHandler() http.Handler {
 
 	handle("GET /api/entry/id/{id}", &handler.EntryByIdHandler{Dictionary: d})
 	handle("GET /api/entry/id/{id}/resolved", &handler.ResolvedEntryHandler{Dictionary: d})
-	handle("GET /api/entry/text/{text}", &handler.EntryByTextHandler{Dictionary: d})
 	handle("POST /api/entries", &handler.EntriesByFilter{Dictionary: d})
 
 	handle("GET /api/kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: d})

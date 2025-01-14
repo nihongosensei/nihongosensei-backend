@@ -1,7 +1,6 @@
 package postgres
 
 import (
-	"fmt"
 	"github.com/doug-martin/goqu/v9"
 	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 )
@@ -25,17 +24,4 @@ func (d *PostgresDictionary) SelectEntryByIds(ids []int) (*[]dictionary.Entry, e
 	}
 
 	return &entries, nil
-}
-
-func (d *PostgresDictionary) SelectEntryByText(text string) (*dictionary.Entry, error) {
-	var entry dictionary.Entry
-	_, err := d.Goqu.From("entry").
-		Select(dictionary.Entry{}).
-		Where(goqu.L("text @> ?::jsonb", fmt.Sprintf(`["%s"]`, text))).
-		ScanStruct(&entry)
-	if err != nil {
-		return nil, err
-	}
-
-	return &entry, nil
 }

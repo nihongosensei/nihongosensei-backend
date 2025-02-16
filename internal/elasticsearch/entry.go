@@ -65,7 +65,7 @@ func (d *ElasticsearchDictionary) selectElasticEntry(id int) (*ElasticEntry, err
 func (d *ElasticsearchDictionary) selectEntryByIds(ids []int) ([]dictionary.Entry, error) {
 	res, err := d.SelectEntries(dictionary.EntryFilter{
 		Ids:   ids,
-		Limit: uint(len(ids)),
+		Limit: len(ids),
 	})
 
 	if err != nil {
@@ -140,12 +140,15 @@ func (d *ElasticsearchDictionary) SelectResolvedEntry(id int) (*dictionary.Resol
 
 	// Select Kanjis
 	if entry.Kanjis != nil && len(entry.Kanjis) > 0 {
-		kanjis, kErr := d.SelectKanjis(entry.Kanjis)
+		kanjis, kErr := d.SelectKanjis(dictionary.KanjiFilters{
+			Kanjis: entry.Kanjis,
+			Limit:  len(entry.Kanjis),
+		})
 		if kErr != nil {
 			return nil, kErr
 		}
 
-		resolvedEntry.Kanjis = kanjis
+		resolvedEntry.Kanjis = &kanjis.Kanjis
 	}
 
 	// Select References

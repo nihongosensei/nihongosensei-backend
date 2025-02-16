@@ -29,18 +29,55 @@ func (d *ElasticsearchDictionary) SelectKanji(kanjiChar string) (*dictionary.Kan
 	return &kanji, nil
 }
 
-func (d *ElasticsearchDictionary) SelectKanjis(kanjis []string) (*[]dictionary.Kanji, error) {
-	limit := len(kanjis)
+func (d *ElasticsearchDictionary) SelectKanjis(filter dictionary.KanjiFilters) (*dictionary.SelecKanjis, error) {
+	query := &types.Query{
+		Bool: &types.BoolQuery{},
+	}
 
-	req := &search.Request{
-		Query: &types.Query{
+	if len(filter.Kanjis) > 0 {
+		query.Bool.Must = append(query.Bool.Must, types.Query{
 			Terms: &types.TermsQuery{
 				TermsQuery: map[string]types.TermsQueryField{
-					"kanji": kanjis,
+					"kanji": filter.Kanjis,
 				},
 			},
-		},
-		Size: &limit,
+		})
+	}
+	if len(filter.Strokes) > 0 {
+		query.Bool.Must = append(query.Bool.Must, types.Query{
+			Terms: &types.TermsQuery{
+				TermsQuery: map[string]types.TermsQueryField{
+					"strokes": filter.Strokes,
+				},
+			},
+		})
+	}
+	if len(filter.Grade) > 0 {
+		query.Bool.Must = append(query.Bool.Must, types.Query{
+			Terms: &types.TermsQuery{
+				TermsQuery: map[string]types.TermsQueryField{
+					"grade": filter.Grade,
+				},
+			},
+		})
+	}
+	if len(filter.Radical) > 0 {
+		query.Bool.Must = append(query.Bool.Must, types.Query{
+			Terms: &types.TermsQuery{
+				TermsQuery: map[string]types.TermsQueryField{
+					"radical": filter.Radical,
+				},
+			},
+		})
+	}
+
+	limit := filter.Limit
+	offset := filter.Offset
+
+	req := &search.Request{
+		Query: query,
+		Size:  &limit,
+		From:  &offset,
 	}
 
 	reqJson, _ := json.Marshal(req)
@@ -68,5 +105,8 @@ func (d *ElasticsearchDictionary) SelectKanjis(kanjis []string) (*[]dictionary.K
 		k[i] = kanji
 	}
 
-	return &k, nil
+	return &dictionary.SelecKanjis{
+		Kanjis: k,
+		Count:  int(res.Hits.Total.Value),
+	}, nil
 }

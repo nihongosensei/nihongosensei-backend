@@ -13,8 +13,8 @@ type EntriesByFilter struct {
 
 type EntriesByFilterPostBody struct {
 	Query  string   `json:"query"`
-	Limit  uint     `json:"limit,omitempty"`
-	Offset uint     `json:"offset,omitempty"`
+	Limit  int      `json:"limit,omitempty"`
+	Offset int      `json:"offset,omitempty"`
 	Jlpt   int16    `json:"jlpt,omitempty"`
 	Kanjis []string `json:"kanjis,omitempty"`
 	Ids    []int    `json:"ids,omitempty"`

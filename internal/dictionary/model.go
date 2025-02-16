@@ -12,7 +12,7 @@ type Dictionary interface {
 	SelectEntry(id int) (*Entry, error)
 	SelectEntries(filter EntryFilter) (*SelectEntries, error)
 	SelectKanji(kanjiChar string) (*Kanji, error)
-	SelectKanjis(kanjiSet []string) (*[]Kanji, error)
+	SelectKanjis(kanjiSet KanjiFilters) (*SelecKanjis, error)
 	SelectResolvedEntry(id int) (*ResolvedEntry, error)
 }
 
@@ -25,6 +25,20 @@ type Kanji struct {
 	Radical string `json:"radical,omitempty"`
 }
 
+type KanjiFilters struct {
+	Limit   int
+	Offset  int
+	Strokes []int16
+	Grade   []int16
+	Radical []string
+	Kanjis  []string
+}
+
+type SelecKanjis struct {
+	Kanjis []Kanji `json:"kanjis"`
+	Count  int     `json:"count"`
+}
+
 type SelectEntries struct {
 	Entries []Entry `json:"entries"`
 	Count   int     `json:"count"`
@@ -32,8 +46,8 @@ type SelectEntries struct {
 
 type EntryFilter struct {
 	Query  string
-	Limit  uint
-	Offset uint
+	Limit  int
+	Offset int
 	// The JLPT Level (1-5)
 	Jlpt int16
 	// A list of ids to select. Only existing matches are returned.

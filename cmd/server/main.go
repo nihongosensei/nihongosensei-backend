@@ -52,6 +52,7 @@ func newHTTPHandler() http.Handler {
 	handle("POST /api/entries", &handler.EntriesByFilter{Dictionary: des})
 
 	handle("GET /api/kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: des})
+	handle("POST /api/kanjis", &handler.KanjisByFilter{Dictionary: des})
 
 	return mux
 }

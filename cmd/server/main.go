@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/ikawaha/kagome-dict/ipa"
@@ -54,7 +55,23 @@ func newHTTPHandler() http.Handler {
 	handle("GET /api/kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: des})
 	handle("POST /api/kanjis", &handler.KanjisByFilter{Dictionary: des})
 
+	// We do not include the health endpoint in otel for now to avoid unnecessary spans
+	mux.HandleFunc("GET /health", healthHandler)
+
 	return mux
+}
+
+type HealthResponse struct {
+	Status string `json:"status"`
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(HealthResponse{Status: "ok"})
 }
 
 func run() (err error) {

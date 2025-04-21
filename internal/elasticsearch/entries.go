@@ -115,8 +115,8 @@ func (d *ElasticsearchDictionary) SelectEntries(filter dictionary.EntryFilter) (
 		})
 	}
 
-	limit := int(filter.Limit)
-	offset := int(filter.Offset)
+	limit := filter.Limit
+	offset := filter.Offset
 
 	req := &search.Request{
 		Query: query,

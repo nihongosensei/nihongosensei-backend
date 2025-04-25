@@ -3,13 +3,12 @@ package telemetry
 import (
 	"context"
 	"errors"
-	"fmt"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/exporters/prometheus"
-	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
@@ -73,6 +72,11 @@ func SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, er
 	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
 	global.SetLoggerProvider(loggerProvider)
 
+	// Add bridge for otel to slog.
+	handler := otelslog.NewHandler("default", otelslog.WithLoggerProvider(loggerProvider))
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+
 	return
 }
 
@@ -84,46 +88,35 @@ func newPropagator() propagation.TextMapPropagator {
 }
 
 func newTraceProvider(ctx context.Context) (*trace.TracerProvider, error) {
-	traceExporter, err := otlptracehttp.New(ctx)
+	exporter, err := otlptracehttp.New(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	traceProvider := trace.NewTracerProvider(trace.WithBatcher(traceExporter))
-	return traceProvider, nil
+	provider := trace.NewTracerProvider(trace.WithBatcher(exporter))
+	return provider, nil
 }
 
 func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
-	metricExporter, err := prometheus.New()
+	exporter, err := otlpmetrichttp.New(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	meterProvider := metric.NewMeterProvider(metric.WithReader(metricExporter))
-	return meterProvider, nil
+	provider := metric.NewMeterProvider(metric.WithReader(metric.NewPeriodicReader(exporter)))
+	return provider, nil
 }
 
 func newLoggerProvider(ctx context.Context) (*log.LoggerProvider, error) {
-	// XXX: we might switch to http logging in the future (otlploghttp.New(ctx))
-	logExporter, err := stdoutlog.New()
+	exporter, err := otlploghttp.New(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	loggerProvider := log.NewLoggerProvider(
-		log.WithProcessor(log.NewBatchProcessor(logExporter)),
-	)
-	return loggerProvider, nil
-}
+	processor := log.NewBatchProcessor(exporter)
+	provider := log.NewLoggerProvider(log.WithProcessor(processor))
 
-func ServeMetrics() {
-	slog.Info("serving metrics at localhost:2223/metrics")
-	http.Handle("/metrics", promhttp.Handler())
-	err := http.ListenAndServe(":2223", nil) //nolint:gosec // Ignoring G114: Use of net/http serve function that has no support for setting timeouts.
-	if err != nil {
-		fmt.Printf("error serving http: %v", err)
-		return
-	}
+	return provider, nil
 }
 
 // responseWriter is a wrapper to capture HTTP status codes

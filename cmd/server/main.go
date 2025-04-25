@@ -123,8 +123,6 @@ func run() (err error) {
 func main() {
 	slog.SetLogLoggerLevel(environment.LogLevel())
 
-	go telemetry.ServeMetrics()
-
 	if err := run(); err != nil {
 		log.Fatalln(err)
 	}

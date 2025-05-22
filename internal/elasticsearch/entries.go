@@ -98,14 +98,14 @@ func (d *ElasticsearchDictionary) SelectEntries(filter dictionary.EntryFilter) (
 				Should: []types.Query{
 					{
 						Term: map[string]types.TermQuery{
-							"text_german": {
+							"text_german.keyword": {
 								Value: filter.Text,
 							},
 						},
 					},
 					{
 						Term: map[string]types.TermQuery{
-							"text_japanese": {
+							"text_japanese.keyword": {
 								Value: filter.Text,
 							},
 						},

@@ -13,7 +13,6 @@ import (
 	"github.com/nihongosensei/nihongosensei-backend/internal/telemetry"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"log"
-	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -121,8 +120,6 @@ func run() (err error) {
 }
 
 func main() {
-	slog.SetLogLoggerLevel(environment.LogLevel())
-
 	if err := run(); err != nil {
 		log.Fatalln(err)
 	}

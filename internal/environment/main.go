@@ -1,9 +1,7 @@
 package environment
 
 import (
-	"log/slog"
 	"os"
-	"strings"
 )
 
 func Get(key string, fallback string) string {
@@ -23,20 +21,4 @@ func Require(key string) string {
 	}
 
 	return value
-}
-
-func LogLevel() slog.Level {
-	logLevelStr := strings.ToLower(os.Getenv("LOG_LEVEL"))
-	switch logLevelStr {
-	case "debug":
-		return slog.LevelDebug
-	case "info":
-		return slog.LevelInfo
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
 }

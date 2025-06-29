@@ -4,19 +4,24 @@ import (
 	"context"
 	"errors"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/contrib/processors/minsev"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/log"
+	logsdk "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/trace"
 	otrace "go.opentelemetry.io/otel/trace"
 	"log/slog"
 	"net/http"
+	"os"
+	"strings"
+	"sync"
 )
 
 // SetupOTelSDK bootstraps the OpenTelemetry pipeline.
@@ -107,14 +112,30 @@ func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 	return provider, nil
 }
 
-func newLoggerProvider(ctx context.Context) (*log.LoggerProvider, error) {
+var getSeverity = sync.OnceValue(func() log.Severity {
+	conv := map[string]log.Severity{
+		"":      log.SeverityInfo, // Default to SeverityInfo for unset.
+		"debug": log.SeverityDebug,
+		"info":  log.SeverityInfo,
+		"warn":  log.SeverityWarn,
+		"error": log.SeverityError,
+	}
+	// log.SeverityUndefined for unknown values.
+	return conv[strings.ToLower(os.Getenv("LOG_LEVEL"))]
+})
+
+type EnvSeverity struct{}
+
+func (EnvSeverity) Severity() log.Severity { return getSeverity() }
+
+func newLoggerProvider(ctx context.Context) (*logsdk.LoggerProvider, error) {
 	exporter, err := otlploghttp.New(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	processor := log.NewBatchProcessor(exporter)
-	provider := log.NewLoggerProvider(log.WithProcessor(processor))
+	processor := minsev.NewLogProcessor(logsdk.NewBatchProcessor(exporter), EnvSeverity{})
+	provider := logsdk.NewLoggerProvider(logsdk.WithProcessor(processor))
 
 	return provider, nil
 }

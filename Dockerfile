@@ -4,7 +4,11 @@ ENV PORT="3000"
 
 WORKDIR /app
 
-COPY app ./
+RUN adduser -D -u 1000 go
+
+USER go
+
+COPY --chown=go:go app ./
 
 RUN chmod +x ./app
 

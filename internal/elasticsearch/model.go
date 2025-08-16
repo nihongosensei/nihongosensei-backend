@@ -1,9 +1,9 @@
 package elasticsearch
 
 import (
-	elasticsearch8 "github.com/elastic/go-elasticsearch/v8"
+	"github.com/elastic/go-elasticsearch/v9"
 )
 
 type ElasticsearchDictionary struct {
-	TypedClient *elasticsearch8.TypedClient
+	TypedClient *elasticsearch.TypedClient
 }

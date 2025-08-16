@@ -3,11 +3,12 @@ package elasticsearch
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
+	"strings"
+
 	"github.com/elastic/go-elasticsearch/v8/typedapi/core/search"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
 	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
-	"log/slog"
-	"strings"
 )
 
 func (d *ElasticsearchDictionary) SelectEntries(filter dictionary.EntryFilter) (*dictionary.SelectEntries, error) {

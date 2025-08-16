@@ -3,6 +3,12 @@ package telemetry
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"net/http"
+	"os"
+	"strings"
+	"sync"
+
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/contrib/processors/minsev"
 	"go.opentelemetry.io/otel"
@@ -17,11 +23,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/trace"
 	otrace "go.opentelemetry.io/otel/trace"
-	"log/slog"
-	"net/http"
-	"os"
-	"strings"
-	"sync"
 )
 
 // SetupOTelSDK bootstraps the OpenTelemetry pipeline.

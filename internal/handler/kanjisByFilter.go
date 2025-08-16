@@ -2,9 +2,10 @@ package handler
 
 import (
 	"encoding/json"
-	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 	"log/slog"
 	"net/http"
+
+	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 )
 
 type KanjisByFilter struct {

@@ -2,9 +2,10 @@ package handler
 
 import (
 	"encoding/json"
-	"github.com/nihongosensei/nihongosensei-backend/internal/furigana"
 	"log/slog"
 	"net/http"
+
+	"github.com/nihongosensei/nihongosensei-backend/internal/furigana"
 
 	"github.com/ikawaha/kagome/v2/tokenizer"
 )

@@ -5,6 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"time"
+
 	"github.com/ikawaha/kagome-dict/ipa"
 	"github.com/ikawaha/kagome/v2/tokenizer"
 	"github.com/nihongosensei/nihongosensei-backend/internal/elasticsearch"
@@ -12,12 +19,6 @@ import (
 	"github.com/nihongosensei/nihongosensei-backend/internal/handler"
 	"github.com/nihongosensei/nihongosensei-backend/internal/telemetry"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"log"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"time"
 )
 
 func newHTTPHandler() http.Handler {
@@ -64,7 +65,7 @@ type HealthResponse struct {
 	Status string `json:"status"`
 }
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
+func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")

@@ -3,10 +3,11 @@ package elasticsearch
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
+
 	"github.com/elastic/go-elasticsearch/v8/typedapi/core/search"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
 	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
-	"log/slog"
 )
 
 func (d *ElasticsearchDictionary) SelectKanji(kanjiChar string) (*dictionary.Kanji, error) {

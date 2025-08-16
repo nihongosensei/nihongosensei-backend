@@ -3,10 +3,11 @@ package handler
 import (
 	"encoding/json"
 	"errors"
-	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 	"log/slog"
 	"net/http"
 	"unicode"
+
+	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 )
 
 type KanjiByCharHandler struct {

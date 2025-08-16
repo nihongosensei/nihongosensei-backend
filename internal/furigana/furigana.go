@@ -2,6 +2,7 @@ package furigana
 
 import (
 	"bytes"
+
 	"github.com/ikawaha/kagome/v2/tokenizer"
 	"github.com/nihongosensei/nihongosensei-backend/internal/japanese"
 )

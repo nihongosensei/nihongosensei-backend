@@ -3,10 +3,11 @@ package elasticsearch
 import (
 	"context"
 	"encoding/json"
-	"github.com/guregu/null/v5"
-	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 	"log/slog"
 	"strconv"
+
+	"github.com/guregu/null/v5"
+	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 )
 
 type ElasticEntry struct {

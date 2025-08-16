@@ -17,14 +17,18 @@ func (d *ElasticsearchDictionary) SelectEntries(filter dictionary.EntryFilter) (
 	}
 
 	if len(filter.Query) > 0 {
+		lowercaseQuery := strings.ToLower(filter.Query)
+		// rank exact matches higher
+		exactMatchBoost := float32(10)
+
 		query.Bool.Must = append(query.Bool.Must, types.Query{
 			Bool: &types.BoolQuery{
-				// This results in a simple OR where either the japanese text or the german text matches.
 				Should: []types.Query{
 					{
 						Match: map[string]types.MatchQuery{
-							"text_german": {
+							"text_japanese": {
 								Query: filter.Query,
+								Boost: &exactMatchBoost,
 							},
 						},
 					},
@@ -32,19 +36,32 @@ func (d *ElasticsearchDictionary) SelectEntries(filter dictionary.EntryFilter) (
 						Match: map[string]types.MatchQuery{
 							"text_japanese": {
 								Query: filter.Query,
+								Boost: &exactMatchBoost,
+							},
+						},
+					},
+					{
+						Term: map[string]types.TermQuery{
+							"text_german.keyword": {
+								Value: lowercaseQuery,
+							},
+						},
+					},
+					{
+						Term: map[string]types.TermQuery{
+							"text_japanese.keyword": {
+								Value: lowercaseQuery,
 							},
 						},
 					},
 				},
+				MinimumShouldMatch: 1,
 			},
 		})
-
+		// rank matches with jlpt level slightly higher
 		// A value of 10 might prefer jlpt matches over exact matches. 5 seems to be
 		// reasonable for now.
 		jlptBoost := float32(5)
-		lowercaseQuery := strings.ToLower(filter.Query)
-
-		// Rank direct matches higher
 		query.Bool.Should = append(query.Bool.Should, types.Query{
 			Term: map[string]types.TermQuery{
 				"has_jlpt_level": {
@@ -52,19 +69,8 @@ func (d *ElasticsearchDictionary) SelectEntries(filter dictionary.EntryFilter) (
 					Boost: &jlptBoost,
 				},
 			},
-		}, types.Query{
-			Term: map[string]types.TermQuery{
-				"text_german.keyword": {
-					Value: lowercaseQuery,
-				},
-			},
-		}, types.Query{
-			Term: map[string]types.TermQuery{
-				"text_japanese.keyword": {
-					Value: lowercaseQuery,
-				},
-			},
 		})
+
 	}
 	if filter.Jlpt != 0 {
 		query.Bool.Filter = append(query.Bool.Filter, types.Query{

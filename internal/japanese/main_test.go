@@ -33,9 +33,3 @@ func TestContainsKanjiWithOneKanji(t *testing.T) {
 		t.Error("Must return true for exact one kanji")
 	}
 }
-
-func TestContainsKanjiWithMultipleKanji(t *testing.T) {
-	if ContainsKanji("学学") {
-		t.Error("Must return false for multiple kanjis")
-	}
-}

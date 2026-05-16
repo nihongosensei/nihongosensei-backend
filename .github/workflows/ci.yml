@@ -1,7 +1,6 @@
 name: CI
 
-on:
-  [push, workflow_dispatch]
+on: [push, workflow_dispatch]
 
 env:
   REGISTRY: ghcr.io
@@ -16,7 +15,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '^1.25'
+          go-version: "^1.25"
+      - run: go test ./...
       - run: CGO_ENABLED=0 go build -o app ./cmd/server/main.go
 
       - name: Archive production artifacts

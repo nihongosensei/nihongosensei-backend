@@ -12,6 +12,7 @@ import (
 
 type TokenizeHandler struct {
 	Tokenizer *tokenizer.Tokenizer
+	Logger    *slog.Logger
 }
 
 type PostBody struct {
@@ -23,8 +24,9 @@ func (h *TokenizeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 
 	var input PostBody
-	err := json.NewDecoder(r.Body).Decode(&input)
-	if err != nil {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&input); err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -40,14 +42,13 @@ func (h *TokenizeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f, err := furigana.TextToFurigana(h.Tokenizer, input.Text)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error("error during TextToFurigana", "error", err)
+		h.Logger.Error("error during TextToFurigana", "error", err)
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(f)
-	if err != nil {
+	if err := json.NewEncoder(w).Encode(f); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error("error while creating furigana response json", "error", err)
+		h.Logger.Error("error while creating furigana response json", "error", err)
 		return
 	}
 }

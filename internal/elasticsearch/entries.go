@@ -3,7 +3,6 @@ package elasticsearch
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v9/typedapi/core/search"
@@ -11,7 +10,7 @@ import (
 	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 )
 
-func (d *ElasticsearchDictionary) SelectEntries(filter dictionary.EntryFilter) (*dictionary.SelectEntries, error) {
+func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dictionary.EntryFilter) (*dictionary.SelectEntries, error) {
 	query := &types.Query{
 		Bool: &types.BoolQuery{},
 	}
@@ -132,12 +131,12 @@ func (d *ElasticsearchDictionary) SelectEntries(filter dictionary.EntryFilter) (
 	}
 
 	reqJson, _ := json.Marshal(req)
-	slog.Debug("performing elasticsearch search request", "request", reqJson)
+	d.Logger.Debug("performing elasticsearch search request", "request", reqJson)
 
 	res, err := d.TypedClient.Search().
 		Index("entries").
 		Request(req).
-		Do(context.Background())
+		Do(ctx)
 
 	if err != nil {
 		return nil, err

@@ -1,6 +1,7 @@
 package dictionary
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/guregu/null/v5"
@@ -10,11 +11,11 @@ var ErrEntryNotFound = fmt.Errorf("entry not found")
 var ErrKanjiNotFound = fmt.Errorf("kanji not found")
 
 type Dictionary interface {
-	SelectEntry(id int) (*Entry, error)
-	SelectEntries(filter EntryFilter) (*SelectEntries, error)
-	SelectKanji(kanjiChar string) (*Kanji, error)
-	SelectKanjis(kanjiSet KanjiFilters) (*SelecKanjis, error)
-	SelectResolvedEntry(id int) (*ResolvedEntry, error)
+	SelectEntry(ctx context.Context, id int) (*Entry, error)
+	SelectEntries(ctx context.Context, filter EntryFilter) (*SelectEntries, error)
+	SelectKanji(ctx context.Context, kanjiChar string) (*Kanji, error)
+	SelectKanjis(ctx context.Context, kanjiSet KanjiFilters) (*SelectKanjis, error)
+	SelectResolvedEntry(ctx context.Context, id int) (*ResolvedEntry, error)
 }
 
 type Kanji struct {
@@ -35,7 +36,7 @@ type KanjiFilters struct {
 	Kanjis  []string
 }
 
-type SelecKanjis struct {
+type SelectKanjis struct {
 	Kanjis []Kanji `json:"kanjis"`
 	Count  int     `json:"count"`
 }
@@ -62,26 +63,26 @@ type EntryFilter struct {
 type Entry struct {
 	Id        int        `json:"id"`
 	EntryJson EntryJson  `json:"entryJson"`
-	Jlpt      null.Int16 `json:"jlpt,omitempty"`
+	Jlpt      null.Int16 `json:"jlpt"`
 	Kanjis    Kanjis     `json:"kanjis"`
 }
 
 type EntryJson struct {
 	Id      int    `json:"id"`
 	Expl    []any  `json:"expl,omitempty"`
-	Form    Form   `json:"form,omitempty"`
+	Form    Form   `json:"form"`
 	Usg     []Usg  `json:"usg,omitempty"`
 	GramGrp any    `json:"gramGrp,omitempty"`
 	Sense   []any  `json:"sense,omitempty"`
-	Ruigos  Ruigos `json:"ruigos,omitempty"`
+	Ruigos  Ruigos `json:"ruigos"`
 	Ref     []any  `json:"ref,omitempty"`
 }
 
 type ResolvedEntry struct {
-	Entry     *Entry                        `json:"entry"`
-	Synonyms  *[]Entry                      `json:"synonyms"`
-	Relations *[]EntryRefWithResolvedSource `json:"relatedEntries"`
-	Kanjis    *[]Kanji                      `json:"kanjis"`
+	Entry     *Entry                       `json:"entry"`
+	Synonyms  []Entry                      `json:"synonyms,omitempty"`
+	Relations []EntryRefWithResolvedSource `json:"relatedEntries,omitempty"`
+	Kanjis    []Kanji                      `json:"kanjis,omitempty"`
 }
 
 type EntryRefWithResolvedSource struct {
@@ -96,7 +97,7 @@ type Kanjis []string
 
 type Form struct {
 	Orth    []Orth  `json:"orth,omitempty"`
-	Reading Reading `json:"reading,omitempty"`
+	Reading Reading `json:"reading"`
 }
 
 type Orth struct {

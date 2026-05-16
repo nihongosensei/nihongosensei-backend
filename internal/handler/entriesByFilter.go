@@ -10,6 +10,7 @@ import (
 
 type EntriesByFilter struct {
 	Dictionary dictionary.Dictionary
+	Logger     *slog.Logger
 }
 
 type EntriesByFilterPostBody struct {
@@ -27,8 +28,9 @@ func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 
 	var input EntriesByFilterPostBody
-	err := json.NewDecoder(r.Body).Decode(&input)
-	if err != nil {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&input); err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -60,19 +62,18 @@ func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		filter.Text = input.Text
 	}
 
-	entries, err := h.Dictionary.SelectEntries(filter)
+	entries, err := h.Dictionary.SelectEntries(r.Context(), filter)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error("error during SelectEntries", "error", err)
+		h.Logger.Error("error during SelectEntries", "error", err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
-	err = json.NewEncoder(w).Encode(entries)
-	if err != nil {
+	if err := json.NewEncoder(w).Encode(entries); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error("error while creating entriesByFilter response json", "error", err)
+		h.Logger.Error("error while creating entriesByFilter response json", "error", err)
 		return
 	}
 }

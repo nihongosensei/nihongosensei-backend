@@ -1,7 +1,7 @@
 package furigana
 
 import (
-	"bytes"
+	"strings"
 
 	"github.com/ikawaha/kagome/v2/tokenizer"
 	"github.com/nihongosensei/nihongosensei-backend/internal/japanese"
@@ -13,11 +13,11 @@ type Furigana struct {
 	BasicForm string `json:"basicForm,omitempty"` // basic form, e.g. "読む"
 }
 
-func TextToFurigana(tn *tokenizer.Tokenizer, text string) ([]interface{}, error) {
+func TextToFurigana(tn *tokenizer.Tokenizer, text string) ([]any, error) {
 	tokens := tn.Analyze(text, tokenizer.Normal)
 
-	var furigana []interface{}
-	var carry bytes.Buffer
+	var furigana []any
+	var carry strings.Builder
 
 	for _, t := range tokens {
 		if t.ID == tokenizer.BosEosID {

@@ -12,6 +12,7 @@ import (
 
 type EntryByIdHandler struct {
 	Dictionary dictionary.Dictionary
+	Logger     *slog.Logger
 }
 
 func (h *EntryByIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +27,7 @@ func (h *EntryByIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry, err := h.Dictionary.SelectEntry(id)
+	entry, err := h.Dictionary.SelectEntry(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, dictionary.ErrEntryNotFound) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
@@ -34,16 +35,15 @@ func (h *EntryByIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error("error during SelectEntry", "error", err)
+		h.Logger.Error("error during SelectEntry", "error", err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
-	err = json.NewEncoder(w).Encode(entry)
-	if err != nil {
+	if err := json.NewEncoder(w).Encode(entry); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error("error while creating entryById response json", "error", err)
+		h.Logger.Error("error while creating entryById response json", "error", err)
 		return
 	}
 }

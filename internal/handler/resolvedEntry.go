@@ -12,6 +12,7 @@ import (
 
 type ResolvedEntryHandler struct {
 	Dictionary dictionary.Dictionary
+	Logger     *slog.Logger
 }
 
 func (h *ResolvedEntryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +27,7 @@ func (h *ResolvedEntryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	entry, err := h.Dictionary.SelectResolvedEntry(id)
+	entry, err := h.Dictionary.SelectResolvedEntry(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, dictionary.ErrEntryNotFound) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
@@ -34,14 +35,14 @@ func (h *ResolvedEntryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error("error during SelectResolvedEntry", "error", err)
+		h.Logger.Error("error during SelectResolvedEntry", "error", err)
 		return
 	}
 
 	resp, err := json.Marshal(entry)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error("failed to create response json for resolved entry", "error", err)
+		h.Logger.Error("failed to create response json for resolved entry", "error", err)
 		return
 	}
 

@@ -3,21 +3,20 @@ package elasticsearch
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 
 	"github.com/elastic/go-elasticsearch/v9/typedapi/core/search"
 	"github.com/elastic/go-elasticsearch/v9/typedapi/types"
 	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 )
 
-func (d *ElasticsearchDictionary) SelectKanji(kanjiChar string) (*dictionary.Kanji, error) {
-	res, err := d.TypedClient.Core.Get("kanjis", kanjiChar).Do(context.Background())
+func (d *ElasticsearchDictionary) SelectKanji(ctx context.Context, kanjiChar string) (*dictionary.Kanji, error) {
+	res, err := d.TypedClient.Core.Get("kanjis", kanjiChar).Do(ctx)
 
 	if err != nil {
 		return nil, err
 	}
 	if !res.Found {
-		return nil, dictionary.ErrEntryNotFound
+		return nil, dictionary.ErrKanjiNotFound
 	}
 
 	var kanji dictionary.Kanji
@@ -30,7 +29,7 @@ func (d *ElasticsearchDictionary) SelectKanji(kanjiChar string) (*dictionary.Kan
 	return &kanji, nil
 }
 
-func (d *ElasticsearchDictionary) SelectKanjis(filter dictionary.KanjiFilters) (*dictionary.SelecKanjis, error) {
+func (d *ElasticsearchDictionary) SelectKanjis(ctx context.Context, filter dictionary.KanjiFilters) (*dictionary.SelectKanjis, error) {
 	query := &types.Query{
 		Bool: &types.BoolQuery{},
 	}
@@ -82,12 +81,12 @@ func (d *ElasticsearchDictionary) SelectKanjis(filter dictionary.KanjiFilters) (
 	}
 
 	reqJson, _ := json.Marshal(req)
-	slog.Debug("performing elasticsearch search request", "request", reqJson)
+	d.Logger.Debug("performing elasticsearch search request", "request", reqJson)
 
 	res, err := d.TypedClient.Search().
 		Index("kanjis").
 		Request(req).
-		Do(context.Background())
+		Do(ctx)
 
 	if err != nil {
 		return nil, err
@@ -106,7 +105,7 @@ func (d *ElasticsearchDictionary) SelectKanjis(filter dictionary.KanjiFilters) (
 		k[i] = kanji
 	}
 
-	return &dictionary.SelecKanjis{
+	return &dictionary.SelectKanjis{
 		Kanjis: k,
 		Count:  int(res.Hits.Total.Value),
 	}, nil

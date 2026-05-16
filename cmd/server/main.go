@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -21,11 +22,11 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-func newHTTPHandler() http.Handler {
+func newHTTPHandler(logger *slog.Logger) (http.Handler, error) {
 
 	t, err := tokenizer.New(ipa.Dict(), tokenizer.OmitBosEos())
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to create tokenizer: %w", err)
 	}
 
 	mux := http.NewServeMux()
@@ -33,11 +34,12 @@ func newHTTPHandler() http.Handler {
 	esClient, err := elasticsearch.CreateClientFromEnv()
 
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to create elasticsearch client: %w", err)
 	}
 
 	des := &elasticsearch.ElasticsearchDictionary{
 		TypedClient: esClient,
+		Logger:      logger,
 	}
 
 	// handle is a replacement for mux.Handle
@@ -46,19 +48,19 @@ func newHTTPHandler() http.Handler {
 		mux.Handle(pattern, otelhttp.NewHandler(telemetry.TracingMiddleware(handler), pattern))
 	}
 
-	handle("POST /api/furigana", &handler.TokenizeHandler{Tokenizer: t})
+	handle("POST /api/furigana", &handler.TokenizeHandler{Tokenizer: t, Logger: logger})
 
-	handle("GET /api/entry/id/{id}", &handler.EntryByIdHandler{Dictionary: des})
-	handle("GET /api/entry/id/{id}/resolved", &handler.ResolvedEntryHandler{Dictionary: des})
-	handle("POST /api/entries", &handler.EntriesByFilter{Dictionary: des})
+	handle("GET /api/entry/id/{id}", &handler.EntryByIdHandler{Dictionary: des, Logger: logger})
+	handle("GET /api/entry/id/{id}/resolved", &handler.ResolvedEntryHandler{Dictionary: des, Logger: logger})
+	handle("POST /api/entries", &handler.EntriesByFilter{Dictionary: des, Logger: logger})
 
-	handle("GET /api/kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: des})
-	handle("POST /api/kanjis", &handler.KanjisByFilter{Dictionary: des})
+	handle("GET /api/kanji/{kanji}", &handler.KanjiByCharHandler{Dictionary: des, Logger: logger})
+	handle("POST /api/kanjis", &handler.KanjisByFilter{Dictionary: des, Logger: logger})
 
 	// We do not include the health endpoint in otel for now to avoid unnecessary spans
 	mux.HandleFunc("GET /health", healthHandler)
 
-	return mux
+	return mux, nil
 }
 
 type HealthResponse struct {
@@ -91,13 +93,22 @@ func run() (err error) {
 
 	port := environment.Get("PORT", "3001")
 
+	// create logger and pass down
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{}))
+
+	handler, err := newHTTPHandler(logger)
+	if err != nil {
+		return err
+	}
+
 	// Start HTTP server.
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%s", port),
-		BaseContext:  func(_ net.Listener) context.Context { return ctx },
-		ReadTimeout:  time.Second,
+		Addr:        fmt.Sprintf(":%s", port),
+		BaseContext: func(_ net.Listener) context.Context { return ctx },
+		// Default read timeout is short; increase to be more permissive for real clients.
+		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
-		Handler:      newHTTPHandler(),
+		Handler:      handler,
 	}
 	srvErr := make(chan error, 1)
 	go func() {
@@ -107,6 +118,10 @@ func run() (err error) {
 	// Wait for interruption.
 	select {
 	case err = <-srvErr:
+		// If the server returned ErrServerClosed as part of a normal shutdown, treat that as nil.
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
 		// Error when starting HTTP server.
 		return
 	case <-ctx.Done():
@@ -116,7 +131,12 @@ func run() (err error) {
 	}
 
 	// When Shutdown is called, ListenAndServe immediately returns ErrServerClosed.
-	err = srv.Shutdown(context.Background())
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if shutdownErr := srv.Shutdown(shutdownCtx); shutdownErr != nil {
+		// if shutdown fails, return that error
+		err = errors.Join(err, shutdownErr)
+	}
 	return
 }
 

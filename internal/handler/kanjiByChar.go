@@ -12,6 +12,7 @@ import (
 
 type KanjiByCharHandler struct {
 	Dictionary dictionary.Dictionary
+	Logger     *slog.Logger
 }
 
 type KanjiByCharDTO struct {
@@ -50,7 +51,7 @@ func (h *KanjiByCharHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	kanji, err := h.Dictionary.SelectKanji(kanjiChar)
+	kanji, err := h.Dictionary.SelectKanji(r.Context(), kanjiChar)
 	if err != nil {
 		if errors.Is(err, dictionary.ErrKanjiNotFound) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
@@ -58,16 +59,15 @@ func (h *KanjiByCharHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error("error during SelectKanji", "error", err)
+		h.Logger.Error("error during SelectKanji", "error", err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
-	err = json.NewEncoder(w).Encode(kanji)
-	if err != nil {
+	if err := json.NewEncoder(w).Encode(kanji); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error("error while creating kanjiByChar response json", "error", err)
+		h.Logger.Error("error while creating kanjiByChar response json", "error", err)
 		return
 	}
 }

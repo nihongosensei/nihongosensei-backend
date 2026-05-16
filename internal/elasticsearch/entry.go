@@ -3,7 +3,6 @@ package elasticsearch
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"strconv"
 
 	"github.com/guregu/null/v5"
@@ -34,8 +33,8 @@ type EntryRef struct {
 	TargetId     int    `json:"targetId"`
 }
 
-func (d *ElasticsearchDictionary) SelectEntry(id int) (*dictionary.Entry, error) {
-	entry, err := d.selectElasticEntry(id)
+func (d *ElasticsearchDictionary) SelectEntry(ctx context.Context, id int) (*dictionary.Entry, error) {
+	entry, err := d.selectElasticEntry(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -43,8 +42,8 @@ func (d *ElasticsearchDictionary) SelectEntry(id int) (*dictionary.Entry, error)
 	return entry.toEntry(), nil
 }
 
-func (d *ElasticsearchDictionary) selectElasticEntry(id int) (*ElasticEntry, error) {
-	res, err := d.TypedClient.Core.Get("entries", strconv.Itoa(id)).Do(context.Background())
+func (d *ElasticsearchDictionary) selectElasticEntry(ctx context.Context, id int) (*ElasticEntry, error) {
+	res, err := d.TypedClient.Core.Get("entries", strconv.Itoa(id)).Do(ctx)
 
 	if err != nil {
 		return nil, err
@@ -63,8 +62,8 @@ func (d *ElasticsearchDictionary) selectElasticEntry(id int) (*ElasticEntry, err
 	return &entry, nil
 }
 
-func (d *ElasticsearchDictionary) selectEntryByIds(ids []int) ([]dictionary.Entry, error) {
-	res, err := d.SelectEntries(dictionary.EntryFilter{
+func (d *ElasticsearchDictionary) selectEntryByIds(ctx context.Context, ids []int) ([]dictionary.Entry, error) {
+	res, err := d.SelectEntries(ctx, dictionary.EntryFilter{
 		Ids:   ids,
 		Limit: len(ids),
 	})
@@ -76,11 +75,11 @@ func (d *ElasticsearchDictionary) selectEntryByIds(ids []int) ([]dictionary.Entr
 	return res.Entries, nil
 }
 
-func (d *ElasticsearchDictionary) selectResolvedRefs(entry *ElasticEntry) (*[]dictionary.EntryRefWithResolvedSource, error) {
+func (d *ElasticsearchDictionary) selectResolvedRefs(ctx context.Context, entry *ElasticEntry) ([]dictionary.EntryRefWithResolvedSource, error) {
 	entries := make([]dictionary.EntryRefWithResolvedSource, 0)
 
 	if len(entry.Refs) == 0 {
-		return &entries, nil
+		return entries, nil
 	}
 
 	entryRefIds := make([]int, len(entry.Refs))
@@ -88,7 +87,7 @@ func (d *ElasticsearchDictionary) selectResolvedRefs(entry *ElasticEntry) (*[]di
 		entryRefIds[i] = ref.TargetId
 	}
 
-	resp, err := d.selectEntryByIds(entryRefIds)
+	resp, err := d.selectEntryByIds(ctx, entryRefIds)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +102,7 @@ func (d *ElasticsearchDictionary) selectResolvedRefs(entry *ElasticEntry) (*[]di
 		}
 
 		if refEntry == nil {
-			slog.Warn("failed to resolve reference entry", "entryId", entry.Id, "refTargetId", ref.TargetId)
+			d.Logger.Warn("failed to resolve reference entry", "entryId", entry.Id, "refTargetId", ref.TargetId)
 			continue
 		}
 
@@ -114,11 +113,11 @@ func (d *ElasticsearchDictionary) selectResolvedRefs(entry *ElasticEntry) (*[]di
 		})
 	}
 
-	return &entries, nil
+	return entries, nil
 }
 
-func (d *ElasticsearchDictionary) SelectResolvedEntry(id int) (*dictionary.ResolvedEntry, error) {
-	entry, err := d.selectElasticEntry(id)
+func (d *ElasticsearchDictionary) SelectResolvedEntry(ctx context.Context, id int) (*dictionary.ResolvedEntry, error) {
+	entry, err := d.selectElasticEntry(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -128,20 +127,20 @@ func (d *ElasticsearchDictionary) SelectResolvedEntry(id int) (*dictionary.Resol
 	}
 
 	// Select Synonyms
-	if entry.Synonyms != nil && len(entry.Synonyms) > 0 {
-		sResult, sErr := d.SelectEntries(dictionary.EntryFilter{
+	if len(entry.Synonyms) > 0 {
+		sResult, sErr := d.SelectEntries(ctx, dictionary.EntryFilter{
 			Ids: entry.Synonyms,
 		})
 		if sErr != nil {
 			return nil, sErr
 		}
 
-		resolvedEntry.Synonyms = &sResult.Entries
+		resolvedEntry.Synonyms = sResult.Entries
 	}
 
 	// Select Kanjis
-	if entry.Kanjis != nil && len(entry.Kanjis) > 0 {
-		kanjis, kErr := d.SelectKanjis(dictionary.KanjiFilters{
+	if len(entry.Kanjis) > 0 {
+		kanjis, kErr := d.SelectKanjis(ctx, dictionary.KanjiFilters{
 			Kanjis: entry.Kanjis,
 			Limit:  len(entry.Kanjis),
 		})
@@ -149,11 +148,11 @@ func (d *ElasticsearchDictionary) SelectResolvedEntry(id int) (*dictionary.Resol
 			return nil, kErr
 		}
 
-		resolvedEntry.Kanjis = &kanjis.Kanjis
+		resolvedEntry.Kanjis = kanjis.Kanjis
 	}
 
 	// Select References
-	refs, err := d.selectResolvedRefs(entry)
+	refs, err := d.selectResolvedRefs(ctx, entry)
 
 	if err != nil {
 		return nil, err

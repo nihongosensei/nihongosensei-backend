@@ -8,9 +8,7 @@ RUN adduser -D -u 1000 go
 
 USER go
 
-COPY --chown=go:go app ./
-
-RUN chmod +x ./app
+COPY --chown=go:go --chmod=755 app ./
 
 EXPOSE 3000
 

@@ -1,6 +1,6 @@
 module github.com/nihongosensei/nihongosensei-backend
 
-go 1.25.0
+go 1.27.0
 
 require (
 	github.com/elastic/go-elasticsearch/v9 v9.4.0

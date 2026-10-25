@@ -4,8 +4,6 @@ ENV PORT="3000"
 
 WORKDIR /app
 
-RUN adduser -D -u 1000 go
-
 COPY --chmod=555 app ./
 
 USER 65532:65532

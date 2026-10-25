@@ -33,7 +33,7 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 					},
 					{
 						Match: map[string]types.MatchQuery{
-							"text_japanese": {
+							"text_german": {
 								Query: filter.Query,
 								Boost: &exactMatchBoost,
 							},

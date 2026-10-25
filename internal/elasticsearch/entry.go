@@ -129,7 +129,8 @@ func (d *ElasticsearchDictionary) SelectResolvedEntry(ctx context.Context, id in
 	// Select Synonyms
 	if len(entry.Synonyms) > 0 {
 		sResult, sErr := d.SelectEntries(ctx, dictionary.EntryFilter{
-			Ids: entry.Synonyms,
+			Ids:   entry.Synonyms,
+			Limit: len(entry.Synonyms),
 		})
 		if sErr != nil {
 			return nil, sErr

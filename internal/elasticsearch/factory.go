@@ -6,9 +6,18 @@ import (
 )
 
 func CreateClientFromEnv() (*elasticsearch.TypedClient, error) {
-	host := environment.Require("ELASTICSEARCH_HOST")
-	username := environment.Require("ELASTICSEARCH_USERNAME")
-	password := environment.Require("ELASTICSEARCH_PASSWORD")
+	host, err := environment.Require("ELASTICSEARCH_HOST")
+	if err != nil {
+		return nil, err
+	}
+	username, err := environment.Require("ELASTICSEARCH_USERNAME")
+	if err != nil {
+		return nil, err
+	}
+	password, err := environment.Require("ELASTICSEARCH_PASSWORD")
+	if err != nil {
+		return nil, err
+	}
 
 	esClient, err := elasticsearch.NewTypedClient(elasticsearch.Config{
 		Addresses: []string{host},

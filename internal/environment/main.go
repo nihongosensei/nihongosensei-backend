@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -13,12 +14,12 @@ func Get(key string, fallback string) string {
 	return value
 }
 
-// Require the given env key. If the key is empty, panic.
-func Require(key string) string {
+// Require returns the value of the given env key. If the key is empty, an error is returned.
+func Require(key string) (string, error) {
 	value := os.Getenv(key)
 	if len(value) == 0 {
-		panic(key + " is required")
+		return "", fmt.Errorf("environment variable %s is required", key)
 	}
 
-	return value
+	return value, nil
 }

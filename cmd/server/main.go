@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/ikawaha/kagome-dict/ipa"
@@ -77,8 +78,8 @@ func healthHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func run() (err error) {
-	// Handle SIGINT (CTRL+C) gracefully.
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	// Handle SIGINT (CTRL+C) and SIGTERM (sent by docker/kubernetes) gracefully.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	// Set up OpenTelemetry.

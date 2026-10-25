@@ -23,9 +23,6 @@ type KanjisByFilterPostBody struct {
 }
 
 func (h *KanjisByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	_, span := tracer.Start(r.Context(), "kanjisByFilter")
-	defer span.End()
-
 	var input KanjisByFilterPostBody
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()

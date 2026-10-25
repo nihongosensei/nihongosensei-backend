@@ -42,9 +42,6 @@ func ContainsExactlyOneKanji(s string) bool {
 }
 
 func (h *KanjiByCharHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	_, span := tracer.Start(r.Context(), "kanjiByChar")
-	defer span.End()
-
 	var kanjiChar = r.PathValue("kanji")
 	if !ContainsExactlyOneKanji(kanjiChar) {
 		http.Error(w, "kanji must contain exactly one kanji", http.StatusBadRequest)

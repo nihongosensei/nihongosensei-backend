@@ -16,9 +16,6 @@ type ResolvedEntryHandler struct {
 }
 
 func (h *ResolvedEntryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	_, span := tracer.Start(r.Context(), "resolvedEntry")
-	defer span.End()
-
 	var idString = r.PathValue("id")
 
 	id, err := strconv.Atoi(idString)

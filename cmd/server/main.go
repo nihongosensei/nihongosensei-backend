@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"net"
 	"net/http"
@@ -143,6 +142,9 @@ func run() (err error) {
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalln(err)
+		// Write to stderr directly: telemetry replaces the default slog handler, which
+		// also receives output of the log package, so the error would not be visible.
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }

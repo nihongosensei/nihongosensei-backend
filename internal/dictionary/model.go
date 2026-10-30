@@ -127,6 +127,8 @@ type EntryJson struct {
 	Usg     []Usg  `json:"usg,omitempty"`
 	GramGrp any    `json:"gramGrp,omitempty"`
 	Etym    []any  `json:"etym,omitempty"`
+	Count   []any  `json:"count,omitempty"`
+	Sref    []any  `json:"sref,omitempty"`
 	Sense   []any  `json:"sense,omitempty"`
 	Ruigos  Ruigos `json:"ruigos"`
 	Ref     []any  `json:"ref,omitempty"`

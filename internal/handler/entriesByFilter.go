@@ -21,6 +21,25 @@ type EntriesByFilterPostBody struct {
 	Kanjis []string `json:"kanjis,omitempty"`
 	Ids    []int    `json:"ids,omitempty"`
 	Text   string   `json:"text,omitempty"`
+	// Sort criteria in priority order.
+	Sort []dictionary.EntrySort `json:"sort,omitempty"`
+}
+
+const maxSortCriteria = 3
+
+// validateSort checks the constraints which cannot be expressed by the enums.
+func validateSort(sort []dictionary.EntrySort, hasQuery bool) bool {
+	if len(sort) > maxSortCriteria {
+		return false
+	}
+	seen := map[dictionary.EntrySortField]bool{}
+	for _, s := range sort {
+		if seen[s.Field] || (s.Field == dictionary.EntrySortScore && !hasQuery) {
+			return false
+		}
+		seen[s.Field] = true
+	}
+	return true
 }
 
 func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +51,12 @@ func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filter := dictionary.EntryFilter{}
+	if !validateSort(input.Sort, len(input.Query) > 0) {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	filter := dictionary.EntryFilter{Sort: input.Sort}
 	if len(input.Query) > 0 {
 		filter.Query = input.Query
 	}

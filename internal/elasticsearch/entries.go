@@ -7,6 +7,7 @@ import (
 
 	"github.com/elastic/go-elasticsearch/v9/typedapi/core/search"
 	"github.com/elastic/go-elasticsearch/v9/typedapi/types"
+	"github.com/elastic/go-elasticsearch/v9/typedapi/types/enums/sortorder"
 	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 )
 
@@ -128,6 +129,7 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 		Query: query,
 		Size:  &limit,
 		From:  &offset,
+		Sort:  entrySort(filter),
 	}
 
 	reqJson, _ := json.Marshal(req)
@@ -159,4 +161,51 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 		Entries: entries,
 		Count:   int(res.Hits.Total.Value),
 	}, nil
+}
+
+// entrySort translates the requested sorting into elasticsearch sort options.
+// Without any criteria the default relevance ordering is kept. Otherwise, ties
+// are broken by relevance (if searching) and finally by id, so that paging
+// through results is stable.
+func entrySort(filter dictionary.EntryFilter) []types.SortCombinations {
+	if len(filter.Sort) == 0 {
+		return nil
+	}
+
+	var sort []types.SortCombinations
+	hasScore, hasId := false, false
+
+	for _, s := range filter.Sort {
+		switch s.Field {
+		case dictionary.EntrySortScore:
+			hasScore = true
+			order := sortorder.Desc
+			if s.Order == dictionary.SortAsc {
+				order = sortorder.Asc
+			}
+			sort = append(sort, types.SortOptions{Score_: &types.ScoreSort{Order: &order}})
+		default:
+			hasId = hasId || s.Field == dictionary.EntrySortId
+			order := sortorder.Asc
+			if s.Order == dictionary.SortDesc {
+				order = sortorder.Desc
+			}
+			sort = append(sort, types.SortOptions{
+				SortOptions: map[string]types.FieldSort{string(s.Field): {Order: &order}},
+			})
+		}
+	}
+
+	if len(filter.Query) > 0 && !hasScore {
+		desc := sortorder.Desc
+		sort = append(sort, types.SortOptions{Score_: &types.ScoreSort{Order: &desc}})
+	}
+	if !hasId {
+		asc := sortorder.Asc
+		sort = append(sort, types.SortOptions{
+			SortOptions: map[string]types.FieldSort{"id": {Order: &asc}},
+		})
+	}
+
+	return sort
 }

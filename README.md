@@ -15,3 +15,21 @@ Currently, the following endpoints are available:
 | `/api/entries`                | POST   | See `EntriesByFilterPostBody` | Returns a list of entries.                                                           |
 | `/api/kanji/{kanji}`          | GET    | -                             | Returns a kanji entry.                                                               |
 | `/api/kanjis`                 | POST   | See `KanjisByFilterPostBody`  | Returns a list of kanjis.                                                            |
+## Sorting
+
+`/api/entries` accepts an optional `sort` array in the request body. Criteria are applied in the given order:
+
+```json
+{ "query": "食べる", "sort": [{ "field": "jlpt", "order": "desc" }] }
+```
+
+| Field          | Notes                                                       |
+|----------------|-------------------------------------------------------------|
+| `id`           |                                                             |
+| `jlpt`         | Entries without a JLPT level are always sorted last.        |
+| `grammar_type` |                                                             |
+| `_score`       | Relevance. Only allowed when `query` is set.                |
+
+`order` is `asc` (default) or `desc` (default for `_score`). Without `sort`, entries are ordered by relevance.
+At most 3 criteria are allowed and each field may only appear once, otherwise the request is rejected with `400`.
+Ties are broken by relevance (when searching) and then `id`, so paging is stable.

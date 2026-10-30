@@ -2,6 +2,7 @@ package dictionary
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/guregu/null/v5"
@@ -46,6 +47,56 @@ type SelectEntries struct {
 	Count   int     `json:"count"`
 }
 
+// EntrySortField is a field entries can be sorted by.
+type EntrySortField string
+
+const (
+	EntrySortId          EntrySortField = "id"
+	EntrySortJlpt        EntrySortField = "jlpt"
+	EntrySortGrammarType EntrySortField = "grammar_type"
+	// EntrySortScore sorts by search relevance. Only valid together with a query.
+	EntrySortScore EntrySortField = "_score"
+)
+
+func (f *EntrySortField) UnmarshalJSON(data []byte) error {
+	var v string
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	switch field := EntrySortField(v); field {
+	case EntrySortId, EntrySortJlpt, EntrySortGrammarType, EntrySortScore:
+		*f = field
+		return nil
+	}
+	return fmt.Errorf("unknown sort field %q", v)
+}
+
+type SortOrder string
+
+const (
+	SortAsc  SortOrder = "asc"
+	SortDesc SortOrder = "desc"
+)
+
+func (o *SortOrder) UnmarshalJSON(data []byte) error {
+	var v string
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	switch order := SortOrder(v); order {
+	case SortAsc, SortDesc:
+		*o = order
+		return nil
+	}
+	return fmt.Errorf("unknown sort order %q", v)
+}
+
+type EntrySort struct {
+	Field EntrySortField `json:"field"`
+	// Defaults to ascending, except for _score which defaults to descending.
+	Order SortOrder `json:"order,omitempty"`
+}
+
 type EntryFilter struct {
 	Query  string
 	Limit  int
@@ -58,6 +109,8 @@ type EntryFilter struct {
 	Kanjis []string
 	// A text which must exactly be contained in an entry.
 	Text string
+	// Sort criteria in priority order. Empty means sorting by relevance.
+	Sort []EntrySort
 }
 
 type Entry struct {

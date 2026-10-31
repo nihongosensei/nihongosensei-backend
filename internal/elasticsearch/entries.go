@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -15,6 +16,10 @@ import (
 )
 
 func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dictionary.EntryFilter) (*dictionary.SelectEntries, error) {
+	// leading and trailing whitespace would break the exact matches
+	filter.Query = strings.TrimSpace(filter.Query)
+	filter.Text = strings.TrimSpace(filter.Text)
+
 	query := &types.Query{
 		Bool: &types.BoolQuery{},
 	}
@@ -54,23 +59,12 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 		})
 	}
 	if len(filter.Text) > 0 {
+		// match (instead of term) applies the normalizer of the keyword fields
 		query.Bool.Filter = append(query.Bool.Filter, types.Query{
 			Bool: &types.BoolQuery{
 				Should: []types.Query{
-					{
-						Term: map[string]types.TermQuery{
-							"text_german.keyword": {
-								Value: filter.Text,
-							},
-						},
-					},
-					{
-						Term: map[string]types.TermQuery{
-							"text_japanese.keyword": {
-								Value: filter.Text,
-							},
-						},
-					},
+					{Match: map[string]types.MatchQuery{"text_german.keyword": {Query: filter.Text}}},
+					{Match: map[string]types.MatchQuery{"text_japanese.keyword": {Query: filter.Text}}},
 				},
 			},
 		})
@@ -81,9 +75,10 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 
 	req := &search.Request{
 		Query: query,
-		Size:  &limit,
-		From:  &offset,
-		Sort:  entrySort(filter),
+		TrackTotalHits: true,
+		Size:           &limit,
+		From:           &offset,
+		Sort:           entrySort(filter),
 	}
 
 	// The field filters are applied as post filter, so that the aggregations
@@ -94,8 +89,10 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 	}
 	req.Aggregations = entryAggregations(filter, fieldFilters)
 
-	reqJson, _ := json.Marshal(req)
-	d.Logger.Debug("performing elasticsearch search request", "request", reqJson)
+	if d.Logger.Enabled(ctx, slog.LevelDebug) {
+		reqJson, _ := json.Marshal(req)
+		d.Logger.Debug("performing elasticsearch search request", "request", string(reqJson))
+	}
 
 	res, err := d.TypedClient.Search().
 		Index("entries").
@@ -141,17 +138,17 @@ const (
 // entryTextQuery matches the text against the analyzed text fields (all terms
 // have to match, so that additional words narrow the result) and, with a
 // much higher boost, exactly against the normalized keyword fields (the written
-// form, the hiragana reading and the translations).
+// form, the hiragana reading and the translations). The exact matches use
+// match queries, which apply the normalizer of the keyword field to the text.
 func entryTextQuery(text string) types.Query {
-	lowercase := strings.ToLower(text)
 	exactMatch := func(field string) types.Query {
-		return types.Query{Term: map[string]types.TermQuery{
-			field: {Value: lowercase, Boost: ptr(exactMatchBoost)},
+		return types.Query{Match: map[string]types.MatchQuery{
+			field: {Query: text, Boost: new(exactMatchBoost)},
 		}}
 	}
 	textMatch := func(field string) types.Query {
 		return types.Query{Match: map[string]types.MatchQuery{
-			field: {Query: text, Boost: ptr(textMatchBoost), Operator: &operator.And},
+			field: {Query: text, Boost: new(textMatchBoost), Operator: &operator.And},
 		}}
 	}
 

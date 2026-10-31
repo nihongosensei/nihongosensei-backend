@@ -134,6 +134,11 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 const (
 	exactMatchBoost = float32(30)
 	textMatchBoost  = float32(2)
+	// prefixMatchBoost ranks entries starting with the text above analyzed
+	// matches, but below exact ones.
+	prefixMatchBoost = float32(5)
+	// unstemmedMatchBoost ranks the exact word form above its stemmed variants.
+	unstemmedMatchBoost = float32(1)
 )
 
 // entryTextQuery matches the text against the analyzed text field of its
@@ -141,38 +146,48 @@ const (
 // result) and, with a much higher boost, exactly against the normalized keyword
 // fields (the written form, the hiragana reading and the translations).
 //
-// Text with japanese characters is only searched in the japanese fields, any
-// other text in the german fields (and the orth, which also holds latin
-// spellings). The exact matches are scored as one constant, so that an entry
-// matching several keyword fields (e.g. orth and text_japanese.keyword hold
-// the same value) is not ranked above others. They use match queries, which
-// apply the normalizer of the keyword field to the text.
+// Text with japanese characters is only searched in the japanese fields, where
+// it additionally matches the beginning of the written form and the reading.
+// Any other text is searched in the german fields, where the unstemmed field
+// ranks the exact word form higher. The exact and prefix matches are scored as
+// one constant each, so that an entry matching several keyword fields (e.g.
+// orth and text_japanese.keyword hold the same value) is not ranked above
+// others. They use match queries, which apply the normalizer of the field to
+// the text.
 func entryTextQuery(text string) types.Query {
-	textField := "text_german"
-	exactFields := []string{"text_german.keyword", "orth"}
-	if japanese.ContainsJapanese(text) {
-		textField = "text_japanese"
-		exactFields = []string{"text_japanese.keyword", "orth", "reading"}
+	textMatch := func(field string, boost float32) types.Query {
+		return types.Query{Match: map[string]types.MatchQuery{
+			field: {Query: text, Boost: new(boost), Operator: &operator.And},
+		}}
+	}
+	constantMatch := func(boost float32, fields ...string) types.Query {
+		matches := make([]types.Query, len(fields))
+		for i, field := range fields {
+			matches[i] = types.Query{Match: map[string]types.MatchQuery{field: {Query: text}}}
+		}
+		return types.Query{ConstantScore: &types.ConstantScoreQuery{
+			Boost:  new(boost),
+			Filter: types.Query{Bool: &types.BoolQuery{Should: matches, MinimumShouldMatch: 1}},
+		}}
 	}
 
-	exact := make([]types.Query, len(exactFields))
-	for i, field := range exactFields {
-		exact[i] = types.Query{Match: map[string]types.MatchQuery{field: {Query: text}}}
+	var should []types.Query
+	if japanese.ContainsJapanese(text) {
+		should = []types.Query{
+			textMatch("text_japanese", textMatchBoost),
+			constantMatch(prefixMatchBoost, "reading.prefix", "orth.prefix"),
+			constantMatch(exactMatchBoost, "text_japanese.keyword", "orth", "reading"),
+		}
+	} else {
+		should = []types.Query{
+			textMatch("text_german", textMatchBoost),
+			textMatch("text_german.unstemmed", unstemmedMatchBoost),
+			constantMatch(exactMatchBoost, "text_german.keyword", "orth"),
+		}
 	}
 
 	return types.Query{
-		Bool: &types.BoolQuery{
-			Should: []types.Query{
-				{Match: map[string]types.MatchQuery{
-					textField: {Query: text, Boost: new(textMatchBoost), Operator: &operator.And},
-				}},
-				{ConstantScore: &types.ConstantScoreQuery{
-					Boost:  new(exactMatchBoost),
-					Filter: types.Query{Bool: &types.BoolQuery{Should: exact, MinimumShouldMatch: 1}},
-				}},
-			},
-			MinimumShouldMatch: 1,
-		},
+		Bool: &types.BoolQuery{Should: should, MinimumShouldMatch: 1},
 	}
 }
 

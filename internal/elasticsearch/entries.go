@@ -9,6 +9,7 @@ import (
 
 	"github.com/elastic/go-elasticsearch/v9/typedapi/core/search"
 	"github.com/elastic/go-elasticsearch/v9/typedapi/types"
+	"github.com/elastic/go-elasticsearch/v9/typedapi/types/enums/operator"
 	"github.com/elastic/go-elasticsearch/v9/typedapi/types/enums/sortorder"
 	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
 )
@@ -137,7 +138,8 @@ const (
 	textMatchBoost  = float32(2)
 )
 
-// entryTextQuery matches the text against the analyzed text fields and, with a
+// entryTextQuery matches the text against the analyzed text fields (all terms
+// have to match, so that additional words narrow the result) and, with a
 // much higher boost, exactly against the normalized keyword fields (the written
 // form, the hiragana reading and the translations).
 func entryTextQuery(text string) types.Query {
@@ -149,7 +151,7 @@ func entryTextQuery(text string) types.Query {
 	}
 	textMatch := func(field string) types.Query {
 		return types.Query{Match: map[string]types.MatchQuery{
-			field: {Query: text, Boost: ptr(textMatchBoost)},
+			field: {Query: text, Boost: ptr(textMatchBoost), Operator: &operator.And},
 		}}
 	}
 

@@ -94,8 +94,8 @@ func TestEntryTextQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := `{"bool":{"minimum_should_match":1,"should":[` +
-		`{"match":{"text_japanese":{"boost":2,"query":"Haus"}}},` +
-		`{"match":{"text_german":{"boost":2,"query":"Haus"}}},` +
+		`{"match":{"text_japanese":{"boost":2,"operator":"and","query":"Haus"}}},` +
+		`{"match":{"text_german":{"boost":2,"operator":"and","query":"Haus"}}},` +
 		`{"term":{"text_japanese.keyword":{"boost":30,"value":"haus"}}},` +
 		`{"term":{"text_german.keyword":{"boost":30,"value":"haus"}}},` +
 		`{"term":{"orth":{"boost":30,"value":"haus"}}},` +

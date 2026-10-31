@@ -27,19 +27,7 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 
 	if len(filter.Query) > 0 {
 		query.Bool.Must = append(query.Bool.Must, entryTextQuery(filter.Query))
-		// rank matches with jlpt level slightly higher
-		// A value of 10 might prefer jlpt matches over exact matches. 5 seems to be
-		// reasonable for now.
-		jlptBoost := float32(5)
-		query.Bool.Should = append(query.Bool.Should, types.Query{
-			Term: map[string]types.TermQuery{
-				"has_jlpt_level": {
-					Value: true,
-					Boost: &jlptBoost,
-				},
-			},
-		})
-
+		query.Bool.Should = append(query.Bool.Should, frequencyQuery())
 	}
 	if len(filter.Ids) > 0 {
 		query.Bool.Filter = append(query.Bool.Filter, types.Query{
@@ -137,9 +125,31 @@ const (
 	// prefixMatchBoost ranks entries starting with the text above analyzed
 	// matches, but below exact ones.
 	prefixMatchBoost = float32(5)
+	// frequencyBoost is the score of the most frequent words. It decides between
+	// equally good matches and can lift a common word above weaker text matches,
+	// but not above exact ones.
+	frequencyBoost = float32(10)
+	// frequencyPivot is the frequency rank which gets half of the frequencyBoost.
+	frequencyPivot = float32(5000)
 	// unstemmedMatchBoost ranks the exact word form above its stemmed variants.
 	unstemmedMatchBoost = float32(1)
 )
+
+// frequencyQuery rewards frequent words: the score goes from frequencyBoost
+// for the most frequent word down towards 0 and is halved at frequencyPivot.
+// Entries without a frequency rank do not get a score from it.
+func frequencyQuery() types.Query {
+	// the field stores 1/rank, as a lower rank is better, so the pivot has to be
+	// the inverse as well
+	pivot := float32(1) / frequencyPivot
+	return types.Query{
+		RankFeature: &types.RankFeatureQuery{
+			Field:      "frequency",
+			Boost:      new(frequencyBoost),
+			Saturation: &types.RankFeatureFunctionSaturation{Pivot: &pivot},
+		},
+	}
+}
 
 // entryTextQuery matches the text against the analyzed text field of its
 // language (all terms have to match, so that additional words narrow the
@@ -190,8 +200,6 @@ func entryTextQuery(text string) types.Query {
 		Bool: &types.BoolQuery{Should: should, MinimumShouldMatch: 1},
 	}
 }
-
-func ptr[T any](v T) *T { return &v }
 
 // aggregationValuesName is the name of the terms aggregation nested in the
 // filter aggregation of each requested field.

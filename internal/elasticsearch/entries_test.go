@@ -120,3 +120,14 @@ func TestEntryTextQuery(t *testing.T) {
 		t.Errorf("got %s, want %s", got, want)
 	}
 }
+
+func TestFrequencyQuery(t *testing.T) {
+	b, err := json.Marshal(frequencyQuery())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"rank_feature":{"boost":10,"field":"frequency","saturation":{"pivot":0.0002}}}`
+	if string(b) != want {
+		t.Errorf("got %s, want %s", b, want)
+	}
+}

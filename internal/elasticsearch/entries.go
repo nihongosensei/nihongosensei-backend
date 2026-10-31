@@ -3,6 +3,8 @@ package elasticsearch
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v9/typedapi/core/search"
@@ -72,15 +74,6 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 		})
 
 	}
-	if filter.Jlpt != 0 {
-		query.Bool.Filter = append(query.Bool.Filter, types.Query{
-			Term: map[string]types.TermQuery{
-				"jlpt": {
-					Value: filter.Jlpt,
-				},
-			},
-		})
-	}
 	if len(filter.Ids) > 0 {
 		query.Bool.Filter = append(query.Bool.Filter, types.Query{
 			Terms: &types.TermsQuery{
@@ -132,6 +125,14 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 		Sort:  entrySort(filter),
 	}
 
+	// The field filters are applied as post filter, so that the aggregations
+	// can decide on their own which of them to respect.
+	fieldFilters := entryFieldFilters(filter)
+	if len(fieldFilters) > 0 {
+		req.PostFilter = &types.Query{Bool: &types.BoolQuery{Filter: queriesOf(fieldFilters, "")}}
+	}
+	req.Aggregations = entryAggregations(filter, fieldFilters)
+
 	reqJson, _ := json.Marshal(req)
 	d.Logger.Debug("performing elasticsearch search request", "request", reqJson)
 
@@ -157,10 +158,122 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 		entries[i] = entry
 	}
 
+	aggregations, err := parseEntryAggregations(filter, res.Aggregations)
+	if err != nil {
+		return nil, err
+	}
+
 	return &dictionary.SelectEntries{
-		Entries: entries,
-		Count:   int(res.Hits.Total.Value),
+		Entries:      entries,
+		Count:        int(res.Hits.Total.Value),
+		Aggregations: aggregations,
 	}, nil
+}
+
+// aggregationValuesName is the name of the terms aggregation nested in the
+// filter aggregation of each requested field.
+const aggregationValuesName = "values"
+
+// maxAggregationBuckets is high enough to return every value of the supported
+// fields (5 jlpt levels, ~25 grammar types).
+const maxAggregationBuckets = 50
+
+// entryFieldFilters returns the terms filters of the multi-valued fields,
+// keyed by field. Values within a field are combined with OR.
+func entryFieldFilters(filter dictionary.EntryFilter) map[dictionary.EntryAggregationField]types.Query {
+	filters := map[dictionary.EntryAggregationField]types.Query{}
+	if len(filter.Jlpt) > 0 {
+		values := make([]types.FieldValue, len(filter.Jlpt))
+		for i, v := range filter.Jlpt {
+			values[i] = v
+		}
+		filters[dictionary.EntryAggregationJlpt] = termsQuery("jlpt", values)
+	}
+	if len(filter.GrammarType) > 0 {
+		values := make([]types.FieldValue, len(filter.GrammarType))
+		for i, v := range filter.GrammarType {
+			values[i] = v
+		}
+		filters[dictionary.EntryAggregationGrammarType] = termsQuery("grammar_type", values)
+	}
+	return filters
+}
+
+func termsQuery(field string, values []types.FieldValue) types.Query {
+	return types.Query{
+		Terms: &types.TermsQuery{
+			TermsQuery: map[string]types.TermsQueryField{field: values},
+		},
+	}
+}
+
+// queriesOf returns the filters in a stable order, leaving out the given field.
+func queriesOf(filters map[dictionary.EntryAggregationField]types.Query, except dictionary.EntryAggregationField) []types.Query {
+	var queries []types.Query
+	for _, field := range []dictionary.EntryAggregationField{dictionary.EntryAggregationJlpt, dictionary.EntryAggregationGrammarType} {
+		if q, ok := filters[field]; ok && field != except {
+			queries = append(queries, q)
+		}
+	}
+	return queries
+}
+
+// entryAggregations builds one aggregation per requested field. It counts the
+// entries matching the query and all field filters except the one on its own
+// field, so that unselected values of that field remain visible.
+func entryAggregations(filter dictionary.EntryFilter, fieldFilters map[dictionary.EntryAggregationField]types.Query) map[string]types.Aggregations {
+	if len(filter.Aggregations) == 0 {
+		return nil
+	}
+
+	aggs := map[string]types.Aggregations{}
+	for _, field := range filter.Aggregations {
+		size := maxAggregationBuckets
+		name := string(field)
+		aggs[name] = types.Aggregations{
+			Filter: &types.Query{Bool: &types.BoolQuery{Filter: queriesOf(fieldFilters, field)}},
+			Aggregations: map[string]types.Aggregations{
+				aggregationValuesName: {
+					Terms: &types.TermsAggregation{Field: &name, Size: &size},
+				},
+			},
+		}
+	}
+	return aggs
+}
+
+// parseEntryAggregations converts the terms buckets of the requested
+// aggregations. Buckets are ordered by count, as returned by elasticsearch.
+func parseEntryAggregations(filter dictionary.EntryFilter, aggs map[string]types.Aggregate) (map[dictionary.EntryAggregationField][]dictionary.AggregationBucket, error) {
+	if len(filter.Aggregations) == 0 {
+		return nil, nil
+	}
+
+	result := map[dictionary.EntryAggregationField][]dictionary.AggregationBucket{}
+	for _, field := range filter.Aggregations {
+		filtered, ok := aggs[string(field)].(*types.FilterAggregate)
+		if !ok {
+			return nil, fmt.Errorf("unexpected aggregation type %T for %s", aggs[string(field)], field)
+		}
+
+		buckets := []dictionary.AggregationBucket{}
+		switch terms := filtered.Aggregations[aggregationValuesName].(type) {
+		case *types.LongTermsAggregate:
+			list, _ := terms.Buckets.([]types.LongTermsBucket)
+			for _, b := range list {
+				buckets = append(buckets, dictionary.AggregationBucket{Key: strconv.FormatInt(b.Key, 10), Count: int(b.DocCount)})
+			}
+		case *types.StringTermsAggregate:
+			list, _ := terms.Buckets.([]types.StringTermsBucket)
+			for _, b := range list {
+				buckets = append(buckets, dictionary.AggregationBucket{Key: fmt.Sprint(b.Key), Count: int(b.DocCount)})
+			}
+		default:
+			return nil, fmt.Errorf("unexpected terms aggregation type %T for %s", terms, field)
+		}
+		result[field] = buckets
+	}
+	return result, nil
 }
 
 // entrySort translates the requested sorting into elasticsearch sort options.

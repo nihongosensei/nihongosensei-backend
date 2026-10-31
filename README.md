@@ -33,3 +33,24 @@ Currently, the following endpoints are available:
 `order` is `asc` (default) or `desc` (default for `_score`). Without `sort`, entries are ordered by relevance.
 At most 3 criteria are allowed and each field may only appear once, otherwise the request is rejected with `400`.
 Ties are broken by relevance (when searching) and then `id`, so paging is stable.
+
+## Filtering and aggregations
+
+`/api/entries` accepts the list filters `jlpt` (levels 1-5) and `grammar_type`. Values within a filter are combined with OR, different filters with AND:
+
+```json
+{ "jlpt": [1, 2], "grammar_type": ["doushi", "meishi"], "aggregations": ["jlpt", "grammar_type"] }
+```
+
+Entries which have a JLPT level of 1 or 2 **and** are a doushi or a meishi are returned. Out-of-range levels are rejected with `400`.
+
+> **Breaking change:** `jlpt` used to be a single number and must now be an array.
+
+`aggregations` is optional and may contain `jlpt` and `grammar_type`. The response then contains bucket counts per value, ordered by count:
+
+```json
+{ "entries": [], "count": 749, "aggregations": { "jlpt": [{ "key": "1", "count": 453 }] } }
+```
+
+Aggregations are not affected by `limit` and `offset`. Each aggregation ignores the filter on its own field but respects the query and all other filters, so unselected values of a field stay visible (faceted search).
+Entries without a value are not counted. Unknown or duplicate aggregation fields are rejected with `400`.

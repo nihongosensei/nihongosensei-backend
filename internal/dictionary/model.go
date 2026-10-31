@@ -45,6 +45,34 @@ type SelectKanjis struct {
 type SelectEntries struct {
 	Entries []Entry `json:"entries"`
 	Count   int     `json:"count"`
+	// Only set for the requested aggregations.
+	Aggregations map[EntryAggregationField][]AggregationBucket `json:"aggregations,omitempty"`
+}
+
+// EntryAggregationField is a field entries can be aggregated by.
+type EntryAggregationField string
+
+const (
+	EntryAggregationJlpt        EntryAggregationField = "jlpt"
+	EntryAggregationGrammarType EntryAggregationField = "grammar_type"
+)
+
+func (f *EntryAggregationField) UnmarshalJSON(data []byte) error {
+	var v string
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	switch field := EntryAggregationField(v); field {
+	case EntryAggregationJlpt, EntryAggregationGrammarType:
+		*f = field
+		return nil
+	}
+	return fmt.Errorf("unknown aggregation field %q", v)
+}
+
+type AggregationBucket struct {
+	Key   string `json:"key"`
+	Count int    `json:"count"`
 }
 
 // EntrySortField is a field entries can be sorted by.
@@ -101,8 +129,10 @@ type EntryFilter struct {
 	Query  string
 	Limit  int
 	Offset int
-	// The JLPT Level (1-5)
-	Jlpt int16
+	// JLPT levels (1-5) where at least one of them must match.
+	Jlpt []int16
+	// Grammar types where at least one of them must match.
+	GrammarType []string
 	// A list of ids to select. Only existing matches are returned.
 	Ids []int
 	// A list of kanjis where at least one of them must match.
@@ -111,6 +141,9 @@ type EntryFilter struct {
 	Text string
 	// Sort criteria in priority order. Empty means sorting by relevance.
 	Sort []EntrySort
+	// Aggregations to compute. Each one ignores the filter on its own field,
+	// but respects all other filters.
+	Aggregations []EntryAggregationField
 }
 
 type Entry struct {

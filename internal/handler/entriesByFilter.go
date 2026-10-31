@@ -14,13 +14,18 @@ type EntriesByFilter struct {
 }
 
 type EntriesByFilterPostBody struct {
-	Query  string   `json:"query"`
-	Limit  int      `json:"limit,omitempty"`
-	Offset int      `json:"offset,omitempty"`
-	Jlpt   int16    `json:"jlpt,omitempty"`
+	Query  string `json:"query"`
+	Limit  int    `json:"limit,omitempty"`
+	Offset int    `json:"offset,omitempty"`
+	// JLPT levels (1-5). Entries matching any of them are returned.
+	Jlpt   []int16  `json:"jlpt,omitempty"`
 	Kanjis []string `json:"kanjis,omitempty"`
 	Ids    []int    `json:"ids,omitempty"`
 	Text   string   `json:"text,omitempty"`
+	// Grammar types. Entries matching any of them are returned.
+	GrammarType []string `json:"grammar_type,omitempty"`
+	// Aggregations to compute, see dictionary.EntryFilter.
+	Aggregations []dictionary.EntryAggregationField `json:"aggregations,omitempty"`
 	// Sort criteria in priority order.
 	Sort []dictionary.EntrySort `json:"sort,omitempty"`
 }
@@ -42,6 +47,28 @@ func validateSort(sort []dictionary.EntrySort, hasQuery bool) bool {
 	return true
 }
 
+// validateAggregations rejects duplicate fields.
+func validateAggregations(aggs []dictionary.EntryAggregationField) bool {
+	seen := map[dictionary.EntryAggregationField]bool{}
+	for _, a := range aggs {
+		if seen[a] {
+			return false
+		}
+		seen[a] = true
+	}
+	return true
+}
+
+// validateJlpt checks that all levels are within 1-5.
+func validateJlpt(levels []int16) bool {
+	for _, l := range levels {
+		if l < 1 || l > 5 {
+			return false
+		}
+	}
+	return true
+}
+
 func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var input EntriesByFilterPostBody
 	dec := json.NewDecoder(r.Body)
@@ -51,17 +78,21 @@ func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !validateSort(input.Sort, len(input.Query) > 0) {
+	if !validateSort(input.Sort, len(input.Query) > 0) ||
+		!validateAggregations(input.Aggregations) ||
+		!validateJlpt(input.Jlpt) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
-	filter := dictionary.EntryFilter{Sort: input.Sort}
+	filter := dictionary.EntryFilter{
+		Sort:         input.Sort,
+		Jlpt:         input.Jlpt,
+		GrammarType:  input.GrammarType,
+		Aggregations: input.Aggregations,
+	}
 	if len(input.Query) > 0 {
 		filter.Query = input.Query
-	}
-	if input.Jlpt > 0 && input.Jlpt <= 5 {
-		filter.Jlpt = input.Jlpt
 	}
 	if input.Offset > 0 {
 		filter.Offset = input.Offset

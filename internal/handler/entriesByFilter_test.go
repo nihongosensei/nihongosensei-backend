@@ -13,6 +13,10 @@ func TestEntriesByFilterSortDecoding(t *testing.T) {
 		`{"sort":[{"field":"grammar_type"}]}`:        true,
 		`{"sort":[{"field":"strokes"}]}`:             false,
 		`{"sort":[{"field":"id","order":"up"}]}`:     false,
+		`{"jlpt":[1,2],"grammar_type":["doushi"]}`:   true,
+		`{"jlpt":3}`: false,
+		`{"aggregations":["jlpt","grammar_type"]}`: true,
+		`{"aggregations":["strokes"]}`:             false,
 	}
 	for body, ok := range cases {
 		var input EntriesByFilterPostBody
@@ -50,4 +54,22 @@ func TestValidateSort(t *testing.T) {
 			t.Error("expected too many criteria to be invalid")
 		}
 	})
+}
+
+func TestValidateAggregations(t *testing.T) {
+	if !validateAggregations([]dictionary.EntryAggregationField{"jlpt", "grammar_type"}) {
+		t.Error("expected distinct aggregations to be valid")
+	}
+	if validateAggregations([]dictionary.EntryAggregationField{"jlpt", "jlpt"}) {
+		t.Error("expected duplicate aggregations to be invalid")
+	}
+}
+
+func TestValidateJlpt(t *testing.T) {
+	if !validateJlpt([]int16{1, 5}) {
+		t.Error("expected levels 1-5 to be valid")
+	}
+	if validateJlpt([]int16{0}) || validateJlpt([]int16{6}) {
+		t.Error("expected out-of-range levels to be invalid")
+	}
 }

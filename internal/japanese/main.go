@@ -25,6 +25,18 @@ func ContainsKanji(s string) bool {
 	return false
 }
 
+// ContainsJapanese checks if the given string contains at least one hiragana,
+// katakana or kanji.
+func ContainsJapanese(s string) bool {
+	for _, char := range s {
+		if unicode.Is(unicode.Hiragana, char) || unicode.Is(unicode.Katakana, char) || IsKanji(char) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // IsKanji checks if the given character is a kanji
 func IsKanji(char rune) bool {
 	return unicode.Is(unicode.Han, char)

@@ -13,6 +13,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v9/typedapi/types/enums/operator"
 	"github.com/elastic/go-elasticsearch/v9/typedapi/types/enums/sortorder"
 	"github.com/nihongosensei/nihongosensei-backend/internal/dictionary"
+	"github.com/nihongosensei/nihongosensei-backend/internal/japanese"
 )
 
 func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dictionary.EntryFilter) (*dictionary.SelectEntries, error) {
@@ -74,7 +75,7 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 	offset := filter.Offset
 
 	req := &search.Request{
-		Query: query,
+		Query:          query,
 		TrackTotalHits: true,
 		Size:           &limit,
 		From:           &offset,
@@ -135,32 +136,40 @@ const (
 	textMatchBoost  = float32(2)
 )
 
-// entryTextQuery matches the text against the analyzed text fields (all terms
-// have to match, so that additional words narrow the result) and, with a
-// much higher boost, exactly against the normalized keyword fields (the written
-// form, the hiragana reading and the translations). The exact matches use
-// match queries, which apply the normalizer of the keyword field to the text.
+// entryTextQuery matches the text against the analyzed text field of its
+// language (all terms have to match, so that additional words narrow the
+// result) and, with a much higher boost, exactly against the normalized keyword
+// fields (the written form, the hiragana reading and the translations).
+//
+// Text with japanese characters is only searched in the japanese fields, any
+// other text in the german fields (and the orth, which also holds latin
+// spellings). The exact matches are scored as one constant, so that an entry
+// matching several keyword fields (e.g. orth and text_japanese.keyword hold
+// the same value) is not ranked above others. They use match queries, which
+// apply the normalizer of the keyword field to the text.
 func entryTextQuery(text string) types.Query {
-	exactMatch := func(field string) types.Query {
-		return types.Query{Match: map[string]types.MatchQuery{
-			field: {Query: text, Boost: new(exactMatchBoost)},
-		}}
+	textField := "text_german"
+	exactFields := []string{"text_german.keyword", "orth"}
+	if japanese.ContainsJapanese(text) {
+		textField = "text_japanese"
+		exactFields = []string{"text_japanese.keyword", "orth", "reading"}
 	}
-	textMatch := func(field string) types.Query {
-		return types.Query{Match: map[string]types.MatchQuery{
-			field: {Query: text, Boost: new(textMatchBoost), Operator: &operator.And},
-		}}
+
+	exact := make([]types.Query, len(exactFields))
+	for i, field := range exactFields {
+		exact[i] = types.Query{Match: map[string]types.MatchQuery{field: {Query: text}}}
 	}
 
 	return types.Query{
 		Bool: &types.BoolQuery{
 			Should: []types.Query{
-				textMatch("text_japanese"),
-				textMatch("text_german"),
-				exactMatch("text_japanese.keyword"),
-				exactMatch("text_german.keyword"),
-				exactMatch("orth"),
-				exactMatch("reading"),
+				{Match: map[string]types.MatchQuery{
+					textField: {Query: text, Boost: new(textMatchBoost), Operator: &operator.And},
+				}},
+				{ConstantScore: &types.ConstantScoreQuery{
+					Boost:  new(exactMatchBoost),
+					Filter: types.Query{Bool: &types.BoolQuery{Should: exact, MinimumShouldMatch: 1}},
+				}},
 			},
 			MinimumShouldMatch: 1,
 		},

@@ -89,18 +89,30 @@ func TestParseEntryAggregations(t *testing.T) {
 }
 
 func TestEntryTextQuery(t *testing.T) {
-	b, err := json.Marshal(entryTextQuery("Haus"))
-	if err != nil {
-		t.Fatal(err)
+	marshal := func(text string) string {
+		b, err := json.Marshal(entryTextQuery(text))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
 	}
+
 	want := `{"bool":{"minimum_should_match":1,"should":[` +
-		`{"match":{"text_japanese":{"boost":2,"operator":"and","query":"Haus"}}},` +
 		`{"match":{"text_german":{"boost":2,"operator":"and","query":"Haus"}}},` +
-		`{"match":{"text_japanese.keyword":{"boost":30,"query":"Haus"}}},` +
-		`{"match":{"text_german.keyword":{"boost":30,"query":"Haus"}}},` +
-		`{"match":{"orth":{"boost":30,"query":"Haus"}}},` +
-		`{"match":{"reading":{"boost":30,"query":"Haus"}}}]}}`
-	if string(b) != want {
-		t.Errorf("got %s, want %s", b, want)
+		`{"constant_score":{"boost":30,"filter":{"bool":{"minimum_should_match":1,"should":[` +
+		`{"match":{"text_german.keyword":{"query":"Haus"}}},` +
+		`{"match":{"orth":{"query":"Haus"}}}]}}}}]}}`
+	if got := marshal("Haus"); got != want {
+		t.Errorf("got %s, want %s", got, want)
+	}
+
+	want = `{"bool":{"minimum_should_match":1,"should":[` +
+		`{"match":{"text_japanese":{"boost":2,"operator":"and","query":"食べる"}}},` +
+		`{"constant_score":{"boost":30,"filter":{"bool":{"minimum_should_match":1,"should":[` +
+		`{"match":{"text_japanese.keyword":{"query":"食べる"}}},` +
+		`{"match":{"orth":{"query":"食べる"}}},` +
+		`{"match":{"reading":{"query":"食べる"}}}]}}}}]}}`
+	if got := marshal("食べる"); got != want {
+		t.Errorf("got %s, want %s", got, want)
 	}
 }

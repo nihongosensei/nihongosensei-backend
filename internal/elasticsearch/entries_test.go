@@ -87,3 +87,20 @@ func TestParseEntryAggregations(t *testing.T) {
 		t.Errorf("expected no aggregations, got %v", got)
 	}
 }
+
+func TestEntryTextQuery(t *testing.T) {
+	b, err := json.Marshal(entryTextQuery("Haus"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"bool":{"minimum_should_match":1,"should":[` +
+		`{"match":{"text_japanese":{"boost":2,"query":"Haus"}}},` +
+		`{"match":{"text_german":{"boost":2,"query":"Haus"}}},` +
+		`{"term":{"text_japanese.keyword":{"boost":30,"value":"haus"}}},` +
+		`{"term":{"text_german.keyword":{"boost":30,"value":"haus"}}},` +
+		`{"term":{"orth":{"boost":30,"value":"haus"}}},` +
+		`{"term":{"reading":{"boost":30,"value":"haus"}}}]}}`
+	if string(b) != want {
+		t.Errorf("got %s, want %s", b, want)
+	}
+}

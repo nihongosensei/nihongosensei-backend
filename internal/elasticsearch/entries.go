@@ -19,47 +19,7 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 	}
 
 	if len(filter.Query) > 0 {
-		lowercaseQuery := strings.ToLower(filter.Query)
-		// rank exact matches higher
-		exactMatchBoost := float32(10)
-
-		query.Bool.Must = append(query.Bool.Must, types.Query{
-			Bool: &types.BoolQuery{
-				Should: []types.Query{
-					{
-						Match: map[string]types.MatchQuery{
-							"text_japanese": {
-								Query: filter.Query,
-								Boost: &exactMatchBoost,
-							},
-						},
-					},
-					{
-						Match: map[string]types.MatchQuery{
-							"text_german": {
-								Query: filter.Query,
-								Boost: &exactMatchBoost,
-							},
-						},
-					},
-					{
-						Term: map[string]types.TermQuery{
-							"text_german.keyword": {
-								Value: lowercaseQuery,
-							},
-						},
-					},
-					{
-						Term: map[string]types.TermQuery{
-							"text_japanese.keyword": {
-								Value: lowercaseQuery,
-							},
-						},
-					},
-				},
-				MinimumShouldMatch: 1,
-			},
-		})
+		query.Bool.Must = append(query.Bool.Must, entryTextQuery(filter.Query))
 		// rank matches with jlpt level slightly higher
 		// A value of 10 might prefer jlpt matches over exact matches. 5 seems to be
 		// reasonable for now.
@@ -169,6 +129,46 @@ func (d *ElasticsearchDictionary) SelectEntries(ctx context.Context, filter dict
 		Aggregations: aggregations,
 	}, nil
 }
+
+// Exact hits on the keyword fields have to outrank analyzed matches, which also
+// happen to be the only way to find words that the analyzers drop as stop words.
+const (
+	exactMatchBoost = float32(30)
+	textMatchBoost  = float32(2)
+)
+
+// entryTextQuery matches the text against the analyzed text fields and, with a
+// much higher boost, exactly against the normalized keyword fields (the written
+// form, the hiragana reading and the translations).
+func entryTextQuery(text string) types.Query {
+	lowercase := strings.ToLower(text)
+	exactMatch := func(field string) types.Query {
+		return types.Query{Term: map[string]types.TermQuery{
+			field: {Value: lowercase, Boost: ptr(exactMatchBoost)},
+		}}
+	}
+	textMatch := func(field string) types.Query {
+		return types.Query{Match: map[string]types.MatchQuery{
+			field: {Query: text, Boost: ptr(textMatchBoost)},
+		}}
+	}
+
+	return types.Query{
+		Bool: &types.BoolQuery{
+			Should: []types.Query{
+				textMatch("text_japanese"),
+				textMatch("text_german"),
+				exactMatch("text_japanese.keyword"),
+				exactMatch("text_german.keyword"),
+				exactMatch("orth"),
+				exactMatch("reading"),
+			},
+			MinimumShouldMatch: 1,
+		},
+	}
+}
+
+func ptr[T any](v T) *T { return &v }
 
 // aggregationValuesName is the name of the terms aggregation nested in the
 // filter aggregation of each requested field.

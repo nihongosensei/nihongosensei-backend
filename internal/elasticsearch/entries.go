@@ -158,8 +158,10 @@ func frequencyQuery() types.Query {
 //
 // Text with japanese characters is only searched in the japanese fields, where
 // it additionally matches the beginning of the written form and the reading.
-// Any other text is searched in the german fields, where the unstemmed field
-// ranks the exact word form higher. The exact and prefix matches are scored as
+// Any other text is searched in the german fields with a constant score (an
+// entry has many senses, so counting the occurrences or the length of the field
+// would favor words with few senses over common ones), where the unstemmed field
+// ranks the exact word form higher. Among equal matches the frequency decides. The exact and prefix matches are scored as
 // one constant each, so that an entry matching several keyword fields (e.g.
 // orth and text_japanese.keyword hold the same value) is not ranked above
 // others. They use match queries, which apply the normalizer of the field to
@@ -181,6 +183,17 @@ func entryTextQuery(text string) types.Query {
 		}}
 	}
 
+	// constantTextMatch scores a match of all terms the same, no matter how often
+	// they occur or how long the field is.
+	constantTextMatch := func(field string, boost float32) types.Query {
+		return types.Query{ConstantScore: &types.ConstantScoreQuery{
+			Boost: new(boost),
+			Filter: types.Query{Match: map[string]types.MatchQuery{
+				field: {Query: text, Operator: &operator.And},
+			}},
+		}}
+	}
+
 	var should []types.Query
 	if japanese.ContainsJapanese(text) {
 		should = []types.Query{
@@ -190,8 +203,8 @@ func entryTextQuery(text string) types.Query {
 		}
 	} else {
 		should = []types.Query{
-			textMatch("text_german", textMatchBoost),
-			textMatch("text_german.unstemmed", unstemmedMatchBoost),
+			constantTextMatch("text_german", textMatchBoost),
+			constantTextMatch("text_german.unstemmed", unstemmedMatchBoost),
 			constantMatch(exactMatchBoost, "text_german.keyword", "orth"),
 		}
 	}

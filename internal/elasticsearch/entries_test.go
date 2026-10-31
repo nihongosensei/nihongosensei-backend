@@ -98,8 +98,8 @@ func TestEntryTextQuery(t *testing.T) {
 	}
 
 	want := `{"bool":{"minimum_should_match":1,"should":[` +
-		`{"match":{"text_german":{"boost":2,"operator":"and","query":"Haus"}}},` +
-		`{"match":{"text_german.unstemmed":{"boost":1,"operator":"and","query":"Haus"}}},` +
+		`{"constant_score":{"boost":2,"filter":{"match":{"text_german":{"operator":"and","query":"Haus"}}}}},` +
+		`{"constant_score":{"boost":1,"filter":{"match":{"text_german.unstemmed":{"operator":"and","query":"Haus"}}}}},` +
 		`{"constant_score":{"boost":30,"filter":{"bool":{"minimum_should_match":1,"should":[` +
 		`{"match":{"text_german.keyword":{"query":"Haus"}}},` +
 		`{"match":{"orth":{"query":"Haus"}}}]}}}}]}}`

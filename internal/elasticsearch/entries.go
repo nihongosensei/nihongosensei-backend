@@ -219,8 +219,8 @@ func entryTextQuery(text string) types.Query {
 const aggregationValuesName = "values"
 
 // maxAggregationBuckets is high enough to return every value of the supported
-// fields (5 jlpt levels, ~25 grammar types).
-const maxAggregationBuckets = 50
+// fields (5 jlpt levels, ~25 grammar types, ~540 usage labels).
+const maxAggregationBuckets = 600
 
 // entryFieldFilters returns the terms filters of the multi-valued fields,
 // keyed by field. Values within a field are combined with OR.
@@ -240,6 +240,13 @@ func entryFieldFilters(filter dictionary.EntryFilter) map[dictionary.EntryAggreg
 		}
 		filters[dictionary.EntryAggregationGrammarType] = termsQuery("grammar_type", values)
 	}
+	if len(filter.Usg) > 0 {
+		values := make([]types.FieldValue, len(filter.Usg))
+		for i, v := range filter.Usg {
+			values[i] = v
+		}
+		filters[dictionary.EntryAggregationUsg] = termsQuery("usg", values)
+	}
 	return filters
 }
 
@@ -251,10 +258,18 @@ func termsQuery(field string, values []types.FieldValue) types.Query {
 	}
 }
 
+// entryFilterFields are the fields with a field filter, in the order the
+// filters are applied.
+var entryFilterFields = []dictionary.EntryAggregationField{
+	dictionary.EntryAggregationJlpt,
+	dictionary.EntryAggregationGrammarType,
+	dictionary.EntryAggregationUsg,
+}
+
 // queriesOf returns the filters in a stable order, leaving out the given field.
 func queriesOf(filters map[dictionary.EntryAggregationField]types.Query, except dictionary.EntryAggregationField) []types.Query {
 	var queries []types.Query
-	for _, field := range []dictionary.EntryAggregationField{dictionary.EntryAggregationJlpt, dictionary.EntryAggregationGrammarType} {
+	for _, field := range entryFilterFields {
 		if q, ok := filters[field]; ok && field != except {
 			queries = append(queries, q)
 		}

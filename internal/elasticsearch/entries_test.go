@@ -54,10 +54,36 @@ func TestEntryAggregations(t *testing.T) {
 		GrammarType:  []string{"doushi"},
 		Aggregations: []dictionary.EntryAggregationField{"jlpt", "grammar_type"},
 	}
-	want := `{"grammar_type":{"aggregations":{"values":{"terms":{"field":"grammar_type","size":50}}},"filter":{"bool":{"filter":[{"terms":{"jlpt":[1,2]}}]}}},` +
-		`"jlpt":{"aggregations":{"values":{"terms":{"field":"jlpt","size":50}}},"filter":{"bool":{"filter":[{"terms":{"grammar_type":["doushi"]}}]}}}}`
+	want := `{"grammar_type":{"aggregations":{"values":{"terms":{"field":"grammar_type","size":600}}},"filter":{"bool":{"filter":[{"terms":{"jlpt":[1,2]}}]}}},` +
+		`"jlpt":{"aggregations":{"values":{"terms":{"field":"jlpt","size":600}}},"filter":{"bool":{"filter":[{"terms":{"grammar_type":["doushi"]}}]}}}}`
 	if got := marshal(f); got != want {
 		t.Errorf("got %s, want %s", got, want)
+	}
+}
+
+func TestEntryAggregationsUsg(t *testing.T) {
+	f := dictionary.EntryFilter{
+		GrammarType:  []string{"meishi"},
+		Usg:          []string{"Med.", "Bot."},
+		Aggregations: []dictionary.EntryAggregationField{"usg"},
+	}
+	b, err := json.Marshal(entryAggregations(f, entryFieldFilters(f)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// the usg aggregation ignores the usg filter, but respects the grammar_type one
+	want := `{"usg":{"aggregations":{"values":{"terms":{"field":"usg","size":600}}},"filter":{"bool":{"filter":[{"terms":{"grammar_type":["meishi"]}}]}}}}`
+	if string(b) != want {
+		t.Errorf("got %s, want %s", b, want)
+	}
+
+	b, err = json.Marshal(queriesOf(entryFieldFilters(f), ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = `[{"terms":{"grammar_type":["meishi"]}},{"terms":{"usg":["Med.","Bot."]}}]`
+	if string(b) != want {
+		t.Errorf("got %s, want %s", b, want)
 	}
 }
 

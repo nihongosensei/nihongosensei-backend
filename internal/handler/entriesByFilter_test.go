@@ -15,8 +15,10 @@ func TestEntriesByFilterSortDecoding(t *testing.T) {
 		`{"sort":[{"field":"id","order":"up"}]}`:     false,
 		`{"jlpt":[1,2],"grammar_type":["doushi"]}`:   true,
 		`{"jlpt":3}`: false,
-		`{"aggregations":["jlpt","grammar_type"]}`: true,
-		`{"aggregations":["strokes"]}`:             false,
+		`{"aggregations":["jlpt","grammar_type"]}`:       true,
+		`{"aggregations":["strokes"]}`:                   false,
+		`{"usg":["Med.","Bot."],"aggregations":["usg"]}`: true,
+		`{"usg":"Med."}`:                                 false,
 	}
 	for body, ok := range cases {
 		var input EntriesByFilterPostBody

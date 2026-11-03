@@ -24,6 +24,8 @@ type EntriesByFilterPostBody struct {
 	Text   string   `json:"text,omitempty"`
 	// Grammar types. Entries matching any of them are returned.
 	GrammarType []string `json:"grammar_type,omitempty"`
+	// Usage labels. Entries matching any of them are returned.
+	Usg []string `json:"usg,omitempty"`
 	// Aggregations to compute, see dictionary.EntryFilter.
 	Aggregations []dictionary.EntryAggregationField `json:"aggregations,omitempty"`
 	// Sort criteria in priority order.
@@ -89,6 +91,7 @@ func (h *EntriesByFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Sort:         input.Sort,
 		Jlpt:         input.Jlpt,
 		GrammarType:  input.GrammarType,
+		Usg:          input.Usg,
 		Aggregations: input.Aggregations,
 	}
 	if len(input.Query) > 0 {

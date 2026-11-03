@@ -36,17 +36,17 @@ Ties are broken by relevance (when searching) and then `id`, so paging is stable
 
 ## Filtering and aggregations
 
-`/api/entries` accepts the list filters `jlpt` (levels 1-5) and `grammar_type`. Values within a filter are combined with OR, different filters with AND:
+`/api/entries` accepts the list filters `jlpt` (levels 1-5), `grammar_type` and `usg` (usage labels like `Med.` or `Bot.`, case-sensitive). Values within a filter are combined with OR, different filters with AND:
 
 ```json
-{ "jlpt": [1, 2], "grammar_type": ["doushi", "meishi"], "aggregations": ["jlpt", "grammar_type"] }
+{ "jlpt": [1, 2], "grammar_type": ["doushi", "meishi"], "usg": ["Med."], "aggregations": ["jlpt", "grammar_type", "usg"] }
 ```
 
-Entries which have a JLPT level of 1 or 2 **and** are a doushi or a meishi are returned. Out-of-range levels are rejected with `400`.
+Entries which have a JLPT level of 1 or 2 **and** are a doushi or a meishi **and** are labeled `Med.` are returned. Out-of-range levels are rejected with `400`.
 
 > **Breaking change:** `jlpt` used to be a single number and must now be an array.
 
-`aggregations` is optional and may contain `jlpt` and `grammar_type`. The response then contains bucket counts per value, ordered by count:
+`aggregations` is optional and may contain `jlpt`, `grammar_type` and `usg`. The response then contains bucket counts per value, ordered by count:
 
 ```json
 { "entries": [], "count": 749, "aggregations": { "jlpt": [{ "key": "1", "count": 453 }] } }

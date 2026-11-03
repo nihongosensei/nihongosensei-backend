@@ -55,6 +55,7 @@ type EntryAggregationField string
 const (
 	EntryAggregationJlpt        EntryAggregationField = "jlpt"
 	EntryAggregationGrammarType EntryAggregationField = "grammar_type"
+	EntryAggregationUsg         EntryAggregationField = "usg"
 )
 
 func (f *EntryAggregationField) UnmarshalJSON(data []byte) error {
@@ -63,7 +64,7 @@ func (f *EntryAggregationField) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch field := EntryAggregationField(v); field {
-	case EntryAggregationJlpt, EntryAggregationGrammarType:
+	case EntryAggregationJlpt, EntryAggregationGrammarType, EntryAggregationUsg:
 		*f = field
 		return nil
 	}
@@ -133,6 +134,8 @@ type EntryFilter struct {
 	Jlpt []int16
 	// Grammar types where at least one of them must match.
 	GrammarType []string
+	// Usage labels (e.g. "Med.") where at least one of them must match.
+	Usg []string
 	// A list of ids to select. Only existing matches are returned.
 	Ids []int
 	// A list of kanjis where at least one of them must match.
